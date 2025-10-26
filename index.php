@@ -1,3 +1,6 @@
++283
+-61
+
 <?php
 // ------- تنظیمات ساده -------
 $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
@@ -7,68 +10,291 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ثبت‌نام رویداد</title>
+  <title>ثبت‌نام سامانه صادرات سیب‌زمینی</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- اگر فونت سفارشی داری، بعداً استایل زیر را در style.css فعال کن -->
   <link rel="stylesheet" href="css/style.css">
   <style>
-    /* حداقل استایل برای اینکه بدون فایل خارجی هم کار کند */
-    :root{
-      --brand:#FF7A00;
-      --text:#222;
-      --muted:#6b7280;
-      --bg:#f8fafc;
-      --card:#fff;
-      --radius:16px;
-      --app-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    @font-face {
+      font-family: "Peyda";
+      src: url("fonts/PeydaWebFaNum-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
     }
-    *{box-sizing:border-box}
-    html,body{background:var(--bg);margin:0;font-family:var(--app-font);color:var(--text)}
-    .wrap{min-height:100svh;display:grid;place-items:center;padding:24px}
-    .card{background:var(--card);width:100%;max-width:620px;border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.08);padding:28px}
-    .title{font-size:22px;font-weight:800;margin:0 0 8px}
-    .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
-    .row{display:flex;gap:12px;align-items:stretch}
-    .field{flex:1}
-    label{display:block;font-size:14px;margin-bottom:8px}
-    .ctrl{width:100%;padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:16px;outline:none}
-    .ctrl:focus{border-color:#d1d5db;box-shadow:0 0 0 4px #f3f4f6}
-    .input-group{display:flex;align-items:center}
-    .prefix{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px 0 0 12px;padding:14px 12px;color:#111;font-weight:700}
-    .ctrl.norad-left{border-radius:0 12px 12px 0;border-right:0}
-    .hint{font-size:12px;color:var(--muted);margin-top:6px}
-    .total{display:flex;justify-content:space-between;align-items:center;background:#fff7ed;border:1px solid #fed7aa;padding:14px 16px;border-radius:12px;margin:14px 0 4px}
-    .total b{font-size:18px}
-    .btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;width:100%;padding:14px 16px;background:var(--brand);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer}
-    .btn:focus{outline:3px solid #fed7aa}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    footer{margin-top:20px;text-align:center;color:#9ca3af;font-size:12px}
-    @media (max-width:480px){
-      .row{flex-direction:column}
+    @font-face {
+      font-family: "Peyda";
+      src: url("fonts/PeydaWebFaNum-Bold.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    :root {
+      --bg:#121212;
+      --bg-glow:rgba(255,255,255,0.04);
+      --card:#fcfcfd;
+      --card-border:#ededed;
+      --text:#1f1f1f;
+      --muted:#8d8d92;
+      --control:#ffffff;
+      --control-border:#e3e3e3;
+      --shadow:0 32px 60px rgba(0,0,0,0.35);
+      --radius:28px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100svh;
+      margin: 0;
+      font-family: "Peyda", "IRANSans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    body::before,
+    body::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      z-index: 0;
+      opacity: 0.7;
+    }
+    body::before {
+      width: 320px;
+      height: 320px;
+      background: #ffffff0d;
+      top: -120px;
+      right: -80px;
+    }
+    body::after {
+      width: 280px;
+      height: 280px;
+      background: #ffffff12;
+      bottom: -120px;
+      left: -100px;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 1;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 36px 40px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .card header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .title {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.5;
+    }
+    .sub {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: #f9f9fb;
+      border: 1px solid var(--control-border);
+      border-radius: 18px;
+      padding: 0 18px;
+      gap: 12px;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .input-wrap:focus-within {
+      border-color: #bdbdbd;
+      box-shadow: 0 0 0 4px rgba(0,0,0,0.04);
+    }
+    .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #f1f1f3;
+      color: #555;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .ctrl {
+      border: none;
+      background: transparent;
+      flex: 1;
+      font-family: inherit;
+      font-size: 16px;
+      color: var(--text);
+      padding: 16px 0;
+      outline: none;
+      text-align: right;
+    }
+    .ctrl::placeholder {
+      color: #aaaaaf;
+    }
+    select.ctrl {
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      padding-right: 0;
+      padding-left: 28px;
+      background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"%3E%3Cpath fill="%23666" d="M10.59.59 6 5.17 1.41.59 0 2l6 6 6-6z"/%3E%3C/svg%3E');
+      background-repeat: no-repeat;
+      background-position: left 4px center;
+    }
+    .prefix {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #efeff1;
+      color: #3f3f3f;
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .total {
+      margin-top: 6px;
+      background: #f3f3f5;
+      border: none;
+      border-radius: 16px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 15px;
+      color: #3a3a3a;
+    }
+    .total b {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .btn {
+      border: none;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #f4f4f6, #dbdbde);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 18px;
+      cursor: pointer;
+      box-shadow: 0 22px 40px rgba(0,0,0,0.22);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 26px 46px rgba(0,0,0,0.26);
+    }
+    .btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(0,0,0,0.08);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    footer {
+      margin-top: 28px;
+      text-align: center;
+      color: #9f9f9f;
+      font-size: 12px;
+    }
+    @media (max-width: 420px) {
+      .card {
+        padding: 30px 24px 32px;
+        border-radius: 22px;
+      }
+      .title {
+        font-size: 23px;
+      }
+      .input-wrap {
+        padding: 0 14px;
+      }
     }
   </style>
+
 </head>
 <body>
   <div class="wrap">
     <form class="card" method="post" action="purchase.php" id="regForm" novalidate>
-      <h1 class="title">ثبت‌نام رویداد</h1>
-      <p class="sub">لطفاً اطلاعات را به‌درستی وارد کنید.</p>
+      <header>
+        <h1 class="title">ثبت‌نام سامانه صادرات سیب‌زمینی</h1>
+        <p class="sub">لطفاً اطلاعات خود را با دقت کامل کنید.</p>
+      </header>
 
       <!-- نام و نام خانوادگی -->
       <div class="field">
-        <label for="fullname">نام و نام خانوادگی</label>
-        <input class="ctrl" id="fullname" name="fullname" type="text" required
-               placeholder="مثلاً: علی تهرانی" autocomplete="name" />
+        <label class="sr-only" for="fullname">نام و نام خانوادگی</label>
+        <div class="input-wrap">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.33 0-6 1.34-6 3v1h12v-1c0-1.66-2.67-3-6-3Z" />
+            </svg>
+          </span>
+          <input class="ctrl" id="fullname" name="fullname" type="text" required
+                 placeholder="نام و نام خانوادگی" autocomplete="name" />
+        </div>
         <div class="hint">وارد کردن نام واقعی برای صدور رسید الزامی است.</div>
       </div>
 
       <!-- شماره همراه +98 -->
       <div class="field" style="margin-top:16px">
-        <label for="mobile">شماره همراه</label>
-        <div class="input-group">
-          <div class="prefix">+98</div>
-          <input class="ctrl norad-left" id="mobile" name="mobile_local" type="tel" inputmode="numeric"
-                 pattern="^9\d{9}$" maxlength="10" required placeholder="9XXXXXXXXX" />
+        <label class="sr-only" for="mobile">شماره همراه</label>
+        <div class="input-wrap">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M6.62 10.79a15 15 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.56.57 1 1 0 0 1 1 1v3.61a1 1 0 0 1-1 1A17.79 17.79 0 0 1 3 6a1 1 0 0 1 1-1h3.61a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.56 1 1 0 0 1-.24 1.01Z" />
+            </svg>
+          </span>
+          <span class="prefix">+98</span>
+          <input class="ctrl" id="mobile" name="mobile_local" type="tel" inputmode="numeric"
+                 pattern="^9\d{9}$" maxlength="10" required placeholder="۹XXXXXXXXX" />
         </div>
         <div class="hint">فقط موبایل ایران؛ ۱۰ رقم و با 9 شروع می‌شود (نمونه: ۹۱۲XXXXXXX).</div>
         <!-- تلفن نهایی ترکیبی در ارسال فرم -->
@@ -77,16 +303,22 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
 
       <!-- تعداد بلیت 1..4 -->
       <div class="field" style="margin-top:16px">
-        <label for="qty">تعداد بلیت</label>
-        <select class="ctrl" id="qty" name="qty" required>
-          <option value="1">۱ بلیت</option>
-          <option value="2">۲ بلیت</option>
-          <option value="3">۳ بلیت</option>
-          <option value="4">۴ بلیت</option>
-        </select>
+        <label class="sr-only" for="qty">تعداد بلیت</label>
+        <div class="input-wrap">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4Zm-4 7h-2v-2h2Zm0-4h-2V8h2Z" />
+            </svg>
+          </span>
+          <select class="ctrl" id="qty" name="qty" required>
+            <option value="1">۱ بلیت</option>
+            <option value="2">۲ بلیت</option>
+            <option value="3">۳ بلیت</option>
+            <option value="4">۴ بلیت</option>
+          </select>
+        </div>
         <div class="hint">حداقل ۱ و حداکثر ۴ بلیت.</div>
       </div>
-
       <!-- مجموع قیمت -->
       <div class="total" id="totalBox" aria-live="polite" style="margin-top:16px">
         <span>مجموع قیمت</span>
@@ -98,7 +330,7 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
       <!-- دکمه -->
       <button class="btn" type="submit" id="submitBtn">پرداخت و تکمیل ثبت‌نام</button>
 
-      <footer>© <?php echo date('Y'); ?> رویداد شما. همه حقوق محفوظ است.</footer>
+      <footer>© <?php echo date('Y'); ?> Sicily Exports Complex. All Rights Reserved.</footer>
     </form>
   </div>
 
@@ -142,7 +374,7 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
       // چک شماره: باید 10 رقم و با 9 شروع شود
       if(!/^9\d{9}$/.test($mobileLocal.value)){
         e.preventDefault();
-        alert('لطفاً شماره همراه را به‌صورت 9XXXXXXXXX وارد کنید.');
+        alert('لطفاً شماره همراه را به‌صورت ۹XXXXXXXXX وارد کنید.');
         $mobileLocal.focus();
         return false;
       }
