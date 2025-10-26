@@ -1,0 +1,197 @@
+/* ============================================================
+   سبک اصلی برای صفحه ثبت‌نام رویداد
+   نویسنده: شما :)
+   ساختار: راست‌چین (RTL) + فونت پیدا (PeydaWebFaNum)
+   ============================================================ */
+
+/* ------------------ 1. تعریف فونت ------------------ */
+@font-face {
+  font-family: 'PeydaWebFaNum';
+  src: url('../fonts/PeydaWebFaNum-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PeydaWebFaNum';
+  src: url('../fonts/PeydaWebFaNum-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ------------------ 2. متغیرها ------------------ */
+:root {
+  --brand: #FF7A00;
+  --text: #222;
+  --muted: #6b7280;
+  --bg: #f8fafc;
+  --card: #fff;
+  --radius: 16px;
+  --app-font: 'PeydaWebFaNum', sans-serif;
+}
+
+/* ------------------ 3. استایل پایه ------------------ */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background: var(--bg);
+  margin: 0;
+  font-family: var(--app-font);
+  color: var(--text);
+  line-height: 1.6;
+  direction: rtl;
+  text-align: right;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ------------------ 4. ساختار صفحه ------------------ */
+.wrap {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  background: var(--card);
+  width: 100%;
+  max-width: 620px;
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+  padding: 28px;
+  animation: fadeIn .6s ease-out;
+}
+
+/* ------------------ 5. تیتر و توضیح ------------------ */
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--brand);
+}
+.sub {
+  color: var(--muted);
+  margin: 0 0 20px;
+  font-size: 14px;
+}
+
+/* ------------------ 6. فیلدها ------------------ */
+label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.ctrl {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 16px;
+  outline: none;
+  direction: rtl;
+  transition: border-color .2s, box-shadow .2s;
+}
+.ctrl:focus {
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 4px #f3f4f6;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+}
+.prefix {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px 0 0 12px;
+  padding: 14px 12px;
+  color: #111;
+  font-weight: 700;
+}
+.ctrl.norad-left {
+  border-radius: 0 12px 12px 0;
+  border-right: 0;
+}
+
+/* ------------------ 7. متن کمکی ------------------ */
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ------------------ 8. بخش قیمت ------------------ */
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin: 20px 0 4px;
+  font-weight: 600;
+}
+.total b {
+  font-size: 18px;
+  color: var(--brand);
+}
+
+/* ------------------ 9. دکمه ------------------ */
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .2s;
+}
+.btn:hover {
+  background: #e56e00;
+  transform: translateY(-1px);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ------------------ 10. فوتر ------------------ */
+footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* ------------------ 11. انیمیشن ساده ------------------ */
+@keyframes fadeIn {
+  from {opacity: 0; transform: translateY(20px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+/* ------------------ 12. ریسپانسیو ------------------ */
+@media (max-width: 480px) {
+  .card { padding: 22px; }
+  .title { font-size: 20px; }
+  .ctrl { font-size: 15px; }
+  .btn { font-size: 15px; }
+}
