@@ -1,16 +1,13 @@
-+283
--61
-
 <?php
 // ------- تنظیمات ساده -------
-$TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
+$TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ثبت‌نام سامانه صادرات سیب‌زمینی</title>
+  <title>ثبت نام مسابقات سوپرکاپ سیسیلی</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <!-- اگر فونت سفارشی داری، بعداً استایل زیر را در style.css فعال کن -->
   <link rel="stylesheet" href="css/style.css">
@@ -80,7 +77,7 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
     }
     .wrap {
       width: 100%;
-      max-width: 420px;
+      max-width: 560px;
       position: relative;
       z-index: 1;
     }
@@ -264,7 +261,7 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
   <div class="wrap">
     <form class="card" method="post" action="purchase.php" id="regForm" novalidate>
       <header>
-        <h1 class="title">ثبت‌نام سامانه صادرات سیب‌زمینی</h1>
+        <h1 class="title">ثبت نام مسابقات سوپرکاپ سیسیلی</h1>
         <p class="sub">لطفاً اطلاعات خود را با دقت کامل کنید.</p>
       </header>
 
@@ -283,27 +280,24 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
         <div class="hint">وارد کردن نام واقعی برای صدور رسید الزامی است.</div>
       </div>
 
-      <!-- شماره همراه +98 -->
+      <!-- شماره تلفن همراه -->
       <div class="field" style="margin-top:16px">
-        <label class="sr-only" for="mobile">شماره همراه</label>
+        <label class="sr-only" for="mobile">شماره تلفن همراه ۱۱ رقمی</label>
         <div class="input-wrap">
           <span class="icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
               <path d="M6.62 10.79a15 15 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.56.57 1 1 0 0 1 1 1v3.61a1 1 0 0 1-1 1A17.79 17.79 0 0 1 3 6a1 1 0 0 1 1-1h3.61a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.56 1 1 0 0 1-.24 1.01Z" />
             </svg>
           </span>
-          <span class="prefix">+98</span>
           <input class="ctrl" id="mobile" name="mobile_local" type="tel" inputmode="numeric"
-                 pattern="^9\d{9}$" maxlength="10" required placeholder="۹XXXXXXXXX" />
+                 pattern="^09\d{9}$" minlength="11" maxlength="11" required placeholder="۰۹XXXXXXXXX" />
         </div>
-        <div class="hint">فقط موبایل ایران؛ ۱۰ رقم و با 9 شروع می‌شود (نمونه: ۹۱۲XXXXXXX).</div>
-        <!-- تلفن نهایی ترکیبی در ارسال فرم -->
-        <input type="hidden" name="mobile_full" id="mobile_full">
+        <div class="hint">فقط موبایل ایران؛ ۱۱ رقم و با ۰۹ شروع می‌شود (نمونه: ۰۹۱۲XXXXXXX).</div>
       </div>
 
-      <!-- تعداد بلیت 1..4 -->
+      <!-- تعداد سهم 1..4 -->
       <div class="field" style="margin-top:16px">
-        <label class="sr-only" for="qty">تعداد بلیت</label>
+        <label class="sr-only" for="qty">تعداد سهم</label>
         <div class="input-wrap">
           <span class="icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
@@ -311,13 +305,13 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
             </svg>
           </span>
           <select class="ctrl" id="qty" name="qty" required>
-            <option value="1">۱ بلیت</option>
-            <option value="2">۲ بلیت</option>
-            <option value="3">۳ بلیت</option>
-            <option value="4">۴ بلیت</option>
+            <option value="1">۱ سهم</option>
+            <option value="2">۲ سهم</option>
+            <option value="3">۳ سهم</option>
+            <option value="4">۴ سهم</option>
           </select>
         </div>
-        <div class="hint">حداقل ۱ و حداکثر ۴ بلیت.</div>
+        <div class="hint">حداقل ۱ و حداکثر ۴ سهم.</div>
       </div>
       <!-- مجموع قیمت -->
       <div class="total" id="totalBox" aria-live="polite" style="margin-top:16px">
@@ -342,7 +336,6 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
     const $totalText = document.getElementById('totalText');
     const $totalPrice = document.getElementById('total_price');
     const $mobileLocal = document.getElementById('mobile');
-    const $mobileFull = document.getElementById('mobile_full');
     const $form = document.getElementById('regForm');
 
     function toPersianDigits(n){
@@ -360,21 +353,12 @@ $TICKET_PRICE = 100000; // هر بلیت ۱۰۰,۰۰۰ ریال
     updateTotal();
     $qty.addEventListener('change', updateTotal);
 
-    // سرهم کردن شماره کامل با +98
-    function buildFullMobile(){
-      const local = ($mobileLocal.value || '').replace(/\D/g,''); // فقط ارقام
-      $mobileFull.value = '+98' + local;
-    }
-    $mobileLocal.addEventListener('input', buildFullMobile);
-    buildFullMobile();
-
     // اعتبارسنجی ساده در ارسال
     $form.addEventListener('submit', function(e){
-      buildFullMobile();
-      // چک شماره: باید 10 رقم و با 9 شروع شود
-      if(!/^9\d{9}$/.test($mobileLocal.value)){
+      // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
+      if(!/^09\d{9}$/.test($mobileLocal.value)){
         e.preventDefault();
-        alert('لطفاً شماره همراه را به‌صورت ۹XXXXXXXXX وارد کنید.');
+        alert('لطفاً شماره همراه را به‌صورت ۰۹XXXXXXXXX وارد کنید.');
         $mobileLocal.focus();
         return false;
       }
