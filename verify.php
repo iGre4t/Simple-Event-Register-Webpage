@@ -25,6 +25,23 @@ function sms_log(string $line): void
     @file_put_contents($logFile, "[$timestamp] $line" . PHP_EOL, FILE_APPEND);
 }
 
+// Normalize phone numbers to local 11-digit format starting with 09XXXXXXXXX
+function normalize_mobile_local09(string $input): string
+{
+    $digits = preg_replace('/\D+/', '', $input);
+    if ($digits === null) { return ''; }
+    if (preg_match('/^98(9\d{9})$/', $digits, $m)) {
+        return '0' . $m[1];
+    }
+    if (preg_match('/^09\d{9}$/', $digits)) {
+        return $digits;
+    }
+    if (preg_match('/^(9\d{9})$/', $digits, $m)) {
+        return '0' . $m[1];
+    }
+    return '';
+}
+
 // Minimal helper to call SMS.ir verify (templated) endpoint
 function smsir_send_template(string $apiKey, string $mobile, int $templateId, string $parameterName, string $value): array
 {
@@ -64,8 +81,9 @@ function smsir_send_template(string $apiKey, string $mobile, int $templateId, st
 // Bulk sender via dedicated line (SMS.ir v1/send/bulk)
 function smsir_send_bulk(string $apiKey, string $lineNumber, string $messageText, array $mobiles): array
 {
+    $ln = ctype_digit($lineNumber) ? (int)$lineNumber : $lineNumber;
     $payload = [
-        'lineNumber'   => $lineNumber,
+        'lineNumber'   => $ln,
         'messageText'  => $messageText,
         'mobiles'      => array_values($mobiles),
         'sendDateTime' => null,
@@ -92,7 +110,7 @@ function smsir_send_bulk(string $apiKey, string $lineNumber, string $messageText
         return ['ok' => false, 'status' => $code, 'error' => $err ?: 'request_failed'];
     }
     $json = json_decode($body, true);
-    return ['ok' => $err === '' && $code >= 200 && $code < 300, 'status' => $code, 'response' => $json ?? $body];
+    return ['ok' => $err === '' && $code >= 200 && $code < 300, 'status' => $code, 'response' => $json ?? $body, 'raw' => $body];
 }
 
 $status = $_GET['Status'] ?? '';
@@ -220,112 +238,88 @@ if (!is_file($completedMarker)) {
     // Remove pending record
     @unlink($pendingFile);
 
-    // Optional: notify admin via SMS if configured
+    // SMS notification(s) via SMS.ir according to configured mode
     $smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
     if (is_readable($smsConfigPath)) {
         $smsConfig = require $smsConfigPath;
         if (is_array($smsConfig)) {
-            // Minimal inline sender (same payload style as before)
-            $apiKey = trim((string)($smsConfig['api_key'] ?? ''));
-            $templateId = (int)($smsConfig['template_id'] ?? 0);
-            $adminMobile = preg_replace('/\D+/', '', (string)($smsConfig['admin_mobile'] ?? ''));
-            $parameterName = trim((string)($smsConfig['parameter_name'] ?? ''));
-            if ($apiKey !== '' && $adminMobile !== '' && extension_loaded('curl')) {
-                if ($templateId > 0 && $parameterName !== '') {
-                    // Admin notification text (ASCII only to avoid encoding issues)
-                    $details = 'New purchase completed' . PHP_EOL .
-                               'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                               'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
-                               'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                               'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                               'RefID: ' . (string)$refId . PHP_EOL .
-                               'Tag: ' . (string)($pending['tag'] ?? '');
+            $mode            = strtolower((string)($smsConfig['mode'] ?? 'bulk'));
+            $apiKey          = trim((string)($smsConfig['api_key'] ?? ''));
+            $templateId      = (int)($smsConfig['template_id'] ?? 0);
+            $parameterName   = trim((string)($smsConfig['parameter_name'] ?? ''));
+            $lineNumber      = trim((string)($smsConfig['line_number'] ?? ''));
+            $adminMobileRaw  = (string)($smsConfig['admin_mobile'] ?? '');
+            $sandbox         = (bool)($smsConfig['sandbox'] ?? false);
 
-                    $res = smsir_send_template($apiKey, $adminMobile, $templateId, $parameterName, $details);
-                    sms_log('SMS.ir verify send -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
-                } else {
-                    sms_log('SMS skipped: template_id/parameter_name not set');
-                }
-                // Send confirmation SMS to buyer
-                $buyerTemplateId = (int)($smsConfig['buyer_template_id'] ?? 0);
-                $buyerParameterName = trim((string)($smsConfig['buyer_parameter_name'] ?? ''));
-                // Fallback to admin template config if buyer-specific not set
-                if ($buyerTemplateId <= 0) { $buyerTemplateId = $templateId; }
-                if ($buyerParameterName === '') { $buyerParameterName = $parameterName; }
+            $adminMobile = normalize_mobile_local09($adminMobileRaw);
+            $buyerMobile = normalize_mobile_local09((string)($pending['mobile'] ?? ''));
 
-                // Normalize buyer mobile to 09xxxxxxxxx for SMS.ir
-                $buyerMobile = '';
-                $savedMobile = (string)($pending['mobile'] ?? '');
-                $digits = preg_replace('/\D+/', '', $savedMobile);
-                if (preg_match('/^98(9\d{9})$/', $digits, $m)) {
-                    $buyerMobile = '0' . $m[1];
-                } elseif (preg_match('/^09\d{9}$/', $savedMobile)) {
-                    $buyerMobile = $savedMobile;
-                } elseif (preg_match('/^(9\d{9})$/', $digits, $m)) {
-                    $buyerMobile = '0' . $m[1];
-                }
+            // Compose messages
+            $adminText = 'New purchase completed' . PHP_EOL .
+                        'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                        'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
+                        'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                        'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
+                        'RefID: ' . (string)$refId . PHP_EOL .
+                        'Tag: ' . (string)($pending['tag'] ?? '');
+            $buyerText = 'Your payment is confirmed.' . PHP_EOL .
+                        'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                        'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                        'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
+                        'RefID: ' . (string)$refId . PHP_EOL .
+                        'Tag: ' . (string)($pending['tag'] ?? '');
 
-                if ($buyerMobile !== '' && $buyerTemplateId > 0 && $buyerParameterName !== '') {
-                    $buyerMsg = 'Your payment is confirmed.' . PHP_EOL .
-                                'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                                'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                                'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                                'RefID: ' . (string)$refId . PHP_EOL .
-                                'Tag: ' . (string)($pending['tag'] ?? '');
-                    $resBuyer = smsir_send_template($apiKey, $buyerMobile, $buyerTemplateId, $buyerParameterName, $buyerMsg);
-                    sms_log('SMS.ir verify send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
-                } else {
-                    sms_log('Buyer SMS skipped: mobile/template unset or invalid');
-                }
+            if ($apiKey === '' || !extension_loaded('curl')) {
+                sms_log('SMS skipped: missing api_key or curl extension');
             } else {
-                sms_log('SMS skipped: missing api_key/admin_mobile or curl not loaded');
-            }
-        }
-    }
-    // Bulk SMS send (admin + buyer) using dedicated line, if configured
-    $smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
-    if (is_readable($smsConfigPath)) {
-        $smsConfig = require $smsConfigPath;
-        if (is_array($smsConfig)) {
-            $apiKey     = trim((string)($smsConfig['api_key'] ?? ''));
-            $lineNumber = trim((string)($smsConfig['line_number'] ?? ''));
-            $adminMobile = preg_replace('/\D+/', '', (string)($smsConfig['admin_mobile'] ?? ''));
-            if ($apiKey !== '' && $lineNumber !== '' && $adminMobile !== '' && extension_loaded('curl')) {
-                $details = 'New purchase completed' . PHP_EOL .
-                           'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                           'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
-                           'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                           'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                           'RefID: ' . (string)$refId . PHP_EOL .
-                           'Tag: ' . (string)($pending['tag'] ?? '');
-                $res = smsir_send_bulk($apiKey, $lineNumber, $details, [$adminMobile]);
-                sms_log('SMS.ir bulk send (admin) -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
+                $doVerify = ($mode === 'verify' || $mode === 'both');
+                $doBulk   = ($mode === 'bulk' || $mode === 'both');
 
-                // Buyer mobile normalization to 09xxxxxxxxx
-                $buyerMobile = '';
-                $savedMobile = (string)($pending['mobile'] ?? '');
-                $digits = preg_replace('/\D+/', '', $savedMobile);
-                if (preg_match('/^98(9\d{9})$/', $digits, $m)) {
-                    $buyerMobile = '0' . $m[1];
-                } elseif (preg_match('/^09\d{9}$/', $savedMobile)) {
-                    $buyerMobile = $savedMobile;
-                } elseif (preg_match('/^(9\d{9})$/', $digits, $m)) {
-                    $buyerMobile = '0' . $m[1];
+                if ($doVerify) {
+                    $tplId = $templateId;
+                    $paramName = $parameterName;
+                    if ($sandbox) { $tplId = 123456; $paramName = 'Code'; }
+
+                    if ($tplId > 0 && $paramName !== '') {
+                        if ($adminMobile !== '') {
+                            $res = smsir_send_template($apiKey, $adminMobile, $tplId, $paramName, $adminText);
+                            $snippet = substr((string)($res['raw'] ?? json_encode($res['response'] ?? '')), 0, 300);
+                            sms_log('SMS.ir verify (admin) status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
+                        } else {
+                            sms_log('Verify admin SMS skipped: invalid admin mobile');
+                        }
+                        if ($buyerMobile !== '') {
+                            $resB = smsir_send_template($apiKey, $buyerMobile, $tplId, $paramName, $buyerText);
+                            $snippetB = substr((string)($resB['raw'] ?? json_encode($resB['response'] ?? '')), 0, 300);
+                            sms_log('SMS.ir verify (buyer) status=' . ($resB['status'] ?? 'n/a') . ' ok=' . (int)($resB['ok'] ?? 0) . ' body=' . $snippetB);
+                        } else {
+                            sms_log('Verify buyer SMS skipped: invalid buyer mobile');
+                        }
+                    } else {
+                        sms_log('Verify skipped: template_id/parameter_name not set');
+                    }
                 }
-                if ($buyerMobile !== '') {
-                    $buyerMsg = 'Your payment is confirmed.' . PHP_EOL .
-                                'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                                'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                                'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                                'RefID: ' . (string)$refId . PHP_EOL .
-                                'Tag: ' . (string)($pending['tag'] ?? '');
-                    $resBuyer = smsir_send_bulk($apiKey, $lineNumber, $buyerMsg, [$buyerMobile]);
-                    sms_log('SMS.ir bulk send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
-                } else {
-                    sms_log('Buyer SMS skipped: invalid mobile');
+
+                if ($doBulk) {
+                    if ($lineNumber !== '') {
+                        if ($adminMobile !== '') {
+                            $res = smsir_send_bulk($apiKey, $lineNumber, $adminText, [$adminMobile]);
+                            $snippet = substr((string)($res['raw'] ?? json_encode($res['response'] ?? '')), 0, 300);
+                            sms_log('SMS.ir bulk (admin) status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
+                        } else {
+                            sms_log('Bulk admin SMS skipped: invalid admin mobile');
+                        }
+                        if ($buyerMobile !== '') {
+                            $resB = smsir_send_bulk($apiKey, $lineNumber, $buyerText, [$buyerMobile]);
+                            $snippetB = substr((string)($resB['raw'] ?? json_encode($resB['response'] ?? '')), 0, 300);
+                            sms_log('SMS.ir bulk (buyer) status=' . ($resB['status'] ?? 'n/a') . ' ok=' . (int)($resB['ok'] ?? 0) . ' body=' . $snippetB);
+                        } else {
+                            sms_log('Bulk buyer SMS skipped: invalid buyer mobile');
+                        }
+                    } else {
+                        sms_log('Bulk skipped: line_number not set');
+                    }
                 }
-            } else {
-                sms_log('Bulk SMS skipped: missing api_key/line_number/admin_mobile or curl not loaded');
             }
         }
     }
@@ -336,4 +330,3 @@ $tag = (string)($pending['tag'] ?? '');
 $qs = http_build_query(['tag' => $tag, 'ref_id' => (string)$refId]);
 header('Location: success.php?' . $qs);
 exit;
-
