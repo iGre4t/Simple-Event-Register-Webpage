@@ -61,6 +61,40 @@ function smsir_send_template(string $apiKey, string $mobile, int $templateId, st
     return ['ok' => $err === '' && $code >= 200 && $code < 300, 'status' => $code, 'response' => $json ?? $body];
 }
 
+// Bulk sender via dedicated line (SMS.ir v1/send/bulk)
+function smsir_send_bulk(string $apiKey, string $lineNumber, string $messageText, array $mobiles): array
+{
+    $payload = [
+        'lineNumber'   => $lineNumber,
+        'messageText'  => $messageText,
+        'mobiles'      => array_values($mobiles),
+        'sendDateTime' => null,
+    ];
+    $ch = curl_init('https://api.sms.ir/v1/send/bulk');
+    if ($ch === false) {
+        return ['ok' => false, 'error' => 'curl_init_failed'];
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST  => 'POST',
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'X-API-KEY: ' . $apiKey,
+        ],
+        CURLOPT_POSTFIELDS    => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    ]);
+    $body = curl_exec($ch);
+    $err  = curl_error($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($body === false) {
+        return ['ok' => false, 'status' => $code, 'error' => $err ?: 'request_failed'];
+    }
+    $json = json_decode($body, true);
+    return ['ok' => $err === '' && $code >= 200 && $code < 300, 'status' => $code, 'response' => $json ?? $body];
+}
+
 $status = $_GET['Status'] ?? '';
 $authority = $_GET['Authority'] ?? '';
 
@@ -245,6 +279,53 @@ if (!is_file($completedMarker)) {
                 }
             } else {
                 sms_log('SMS skipped: missing api_key/admin_mobile or curl not loaded');
+            }
+        }
+    }
+    // Bulk SMS send (admin + buyer) using dedicated line, if configured
+    $smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
+    if (is_readable($smsConfigPath)) {
+        $smsConfig = require $smsConfigPath;
+        if (is_array($smsConfig)) {
+            $apiKey     = trim((string)($smsConfig['api_key'] ?? ''));
+            $lineNumber = trim((string)($smsConfig['line_number'] ?? ''));
+            $adminMobile = preg_replace('/\D+/', '', (string)($smsConfig['admin_mobile'] ?? ''));
+            if ($apiKey !== '' && $lineNumber !== '' && $adminMobile !== '' && extension_loaded('curl')) {
+                $details = "O�O"O� O3U?O\u0015O�O' O�O_UOO_" . PHP_EOL .
+                           'U+O\u0015U.: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                           'U.U^O"O\u0015UOU,: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
+                           'O�O1O_O\u0015O_: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                           'U.O"U,O�: ' . number_format((int)($pending['total'] ?? 0)) . ' O�UOO\u0015U,' . PHP_EOL .
+                           'RefID: ' . (string)$refId . PHP_EOL .
+                           'O"O�U+O3O": ' . (string)($pending['tag'] ?? '');
+                $res = smsir_send_bulk($apiKey, $lineNumber, $details, [$adminMobile]);
+                sms_log('SMS.ir bulk send (admin) -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
+
+                // Buyer mobile normalization to 09xxxxxxxxx
+                $buyerMobile = '';
+                $savedMobile = (string)($pending['mobile'] ?? '');
+                $digits = preg_replace('/\D+/', '', $savedMobile);
+                if (preg_match('/^98(9\d{9})$/', $digits, $m)) {
+                    $buyerMobile = '0' . $m[1];
+                } elseif (preg_match('/^09\d{9}$/', $savedMobile)) {
+                    $buyerMobile = $savedMobile;
+                } elseif (preg_match('/^(9\d{9})$/', $digits, $m)) {
+                    $buyerMobile = '0' . $m[1];
+                }
+                if ($buyerMobile !== '') {
+                    $buyerMsg = "U_O�O_O\u0015OrO� O'U.O\u0015 O"O\u0015 U.U^U?U,UOO� O�O"O� O'O_" . PHP_EOL .
+                                'U+O\u0015U.: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                                'O�O1O_O\u0015O_: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                                'U.O"U,O�: ' . number_format((int)($pending['total'] ?? 0)) . ' O�UOO\u0015U,' . PHP_EOL .
+                                'UcO_O�U�U_UOO�UO: ' . (string)$refId . PHP_EOL .
+                                'O"O�U+O3O": ' . (string)($pending['tag'] ?? '');
+                    $resBuyer = smsir_send_bulk($apiKey, $lineNumber, $buyerMsg, [$buyerMobile]);
+                    sms_log('SMS.ir bulk send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
+                } else {
+                    sms_log('Buyer SMS skipped: invalid mobile');
+                }
+            } else {
+                sms_log('Bulk SMS skipped: missing api_key/line_number/admin_mobile or curl not loaded');
             }
         }
     }

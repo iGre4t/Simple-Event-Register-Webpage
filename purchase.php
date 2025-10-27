@@ -90,8 +90,9 @@ $payload = [
     'merchant_id' => ZARINPAL_MERCHANT_ID,
     'amount' => $totalExpected,
     'callback_url' => zarinpal_build_callback_url(),
-    // Put the attendee list number (internal tag) in Zarinpal description
-    'description' => $tag,
+    // Put internal tag + attendee full name in Zarinpal description
+    // Example: "00002 | علی رضایی"
+    'description' => trim($tag . ' | ' . $fullname),
     'metadata' => [
         'mobile' => '0' . $mobileLocal,
         'order_id' => $tag,

@@ -10,6 +10,9 @@ return [
     // شماره موبایلی که پیامک باید برای آن ارسال شود.
     'admin_mobile' => '09102024292',
 
+    // New: dedicated line number for Bulk API (from SMS.ir panel)
+    'line_number' => '300021150920',
+
     // نام پارامتری که در تمپلیت برای نمایش متن دلخواه استفاده می‌کنید.
     'parameter_name' => 'DETAILS',
 
