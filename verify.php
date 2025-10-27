@@ -232,14 +232,14 @@ if (!is_file($completedMarker)) {
             $parameterName = trim((string)($smsConfig['parameter_name'] ?? ''));
             if ($apiKey !== '' && $adminMobile !== '' && extension_loaded('curl')) {
                 if ($templateId > 0 && $parameterName !== '') {
-                    // Persian admin notification text
-                    $details = "ثبت سفارش جدید" . PHP_EOL .
-                               'نام: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                               'موبایل: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
-                               'تعداد: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                               'مبلغ: ' . number_format((int)($pending['total'] ?? 0)) . ' ریال' . PHP_EOL .
+                    // Admin notification text (ASCII only to avoid encoding issues)
+                    $details = 'New purchase completed' . PHP_EOL .
+                               'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                               'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
+                               'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                               'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
                                'RefID: ' . (string)$refId . PHP_EOL .
-                               'برچسب: ' . (string)($pending['tag'] ?? '');
+                               'Tag: ' . (string)($pending['tag'] ?? '');
 
                     $res = smsir_send_template($apiKey, $adminMobile, $templateId, $parameterName, $details);
                     sms_log('SMS.ir verify send -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
@@ -266,12 +266,12 @@ if (!is_file($completedMarker)) {
                 }
 
                 if ($buyerMobile !== '' && $buyerTemplateId > 0 && $buyerParameterName !== '') {
-                    $buyerMsg = "پرداخت شما با موفقیت ثبت شد" . PHP_EOL .
-                                'نام: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                                'تعداد: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                                'مبلغ: ' . number_format((int)($pending['total'] ?? 0)) . ' ریال' . PHP_EOL .
-                                'کدرهگیری: ' . (string)$refId . PHP_EOL .
-                                'برچسب: ' . (string)($pending['tag'] ?? '');
+                    $buyerMsg = 'Your payment is confirmed.' . PHP_EOL .
+                                'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                                'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                                'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
+                                'RefID: ' . (string)$refId . PHP_EOL .
+                                'Tag: ' . (string)($pending['tag'] ?? '');
                     $resBuyer = smsir_send_template($apiKey, $buyerMobile, $buyerTemplateId, $buyerParameterName, $buyerMsg);
                     sms_log('SMS.ir verify send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
                 } else {
@@ -291,13 +291,13 @@ if (!is_file($completedMarker)) {
             $lineNumber = trim((string)($smsConfig['line_number'] ?? ''));
             $adminMobile = preg_replace('/\D+/', '', (string)($smsConfig['admin_mobile'] ?? ''));
             if ($apiKey !== '' && $lineNumber !== '' && $adminMobile !== '' && extension_loaded('curl')) {
-                $details = "O�O"O� O3U?O\u0015O�O' O�O_UOO_" . PHP_EOL .
-                           'U+O\u0015U.: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                           'U.U^O"O\u0015UOU,: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
-                           'O�O1O_O\u0015O_: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                           'U.O"U,O�: ' . number_format((int)($pending['total'] ?? 0)) . ' O�UOO\u0015U,' . PHP_EOL .
+                $details = 'New purchase completed' . PHP_EOL .
+                           'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                           'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
+                           'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                           'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
                            'RefID: ' . (string)$refId . PHP_EOL .
-                           'O"O�U+O3O": ' . (string)($pending['tag'] ?? '');
+                           'Tag: ' . (string)($pending['tag'] ?? '');
                 $res = smsir_send_bulk($apiKey, $lineNumber, $details, [$adminMobile]);
                 sms_log('SMS.ir bulk send (admin) -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
 
@@ -313,12 +313,12 @@ if (!is_file($completedMarker)) {
                     $buyerMobile = '0' . $m[1];
                 }
                 if ($buyerMobile !== '') {
-                    $buyerMsg = "U_O�O_O\u0015OrO� O'U.O\u0015 O"O\u0015 U.U^U?U,UOO� O�O"O� O'O_" . PHP_EOL .
-                                'U+O\u0015U.: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                                'O�O1O_O\u0015O_: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                                'U.O"U,O�: ' . number_format((int)($pending['total'] ?? 0)) . ' O�UOO\u0015U,' . PHP_EOL .
-                                'UcO_O�U�U_UOO�UO: ' . (string)$refId . PHP_EOL .
-                                'O"O�U+O3O": ' . (string)($pending['tag'] ?? '');
+                    $buyerMsg = 'Your payment is confirmed.' . PHP_EOL .
+                                'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                                'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                                'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
+                                'RefID: ' . (string)$refId . PHP_EOL .
+                                'Tag: ' . (string)($pending['tag'] ?? '');
                     $resBuyer = smsir_send_bulk($apiKey, $lineNumber, $buyerMsg, [$buyerMobile]);
                     sms_log('SMS.ir bulk send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
                 } else {
@@ -336,3 +336,4 @@ $tag = (string)($pending['tag'] ?? '');
 $qs = http_build_query(['tag' => $tag, 'ref_id' => (string)$refId]);
 header('Location: success.php?' . $qs);
 exit;
+
