@@ -299,13 +299,8 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
               <path d="M6.62 10.79a15 15 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.56.57 1 1 0 0 1 1 1v3.61a1 1 0 0 1-1 1A17.79 17.79 0 0 1 3 6a1 1 0 0 1 1-1h3.61a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.56 1 1 0 0 1-.24 1.01Z" />
             </svg>
           </span>
-<<<<<<< ours
-          <input class="ctrl" id="mobile" name="mobile_local" type="tel" inputmode="numeric"
-                 pattern="^09\d{9}$" minlength="11" maxlength="11" required placeholder="۰۹XXXXXXXXX" />
-=======
           <input class="ctrl ctrl--mobile" id="mobile" name="mobile_local" type="tel" inputmode="numeric" dir="ltr"
                  pattern="^(09|۰۹)[0-9۰-۹]{9}$" minlength="11" maxlength="11" required placeholder="۰۹XXXXXXXXX" />
->>>>>>> theirs
         </div>
         <div class="hint">فقط موبایل ایران؛ ۱۱ رقم و با ۰۹ شروع می‌شود (نمونه: ۰۹۱۲XXXXXXX).</div>
       </div>
@@ -396,15 +391,10 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
       $submit.setAttribute('aria-disabled', String(!enable));
     }
     updateTotal();
-    $qty.addEventListener('change', updateTotal);
-<<<<<<< ours
-
-    // اعتبارسنجی ساده در ارسال
-    $form.addEventListener('submit', function(e){
-      // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
-      if(!/^09\d{9}$/.test($mobileLocal.value)){
-=======
-    $qty.addEventListener('change', () => toggleSubmit());
+    $qty.addEventListener('change', () => {
+      updateTotal();
+      toggleSubmit();
+    });
     $fullname.addEventListener('input', () => toggleSubmit());
     $mobileLocal.addEventListener('input', () => {
       const digits = sanitizeMobile();
@@ -417,7 +407,6 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
       const digits = sanitizeMobile();
       // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
       if(!/^09\d{9}$/.test(digits)){
->>>>>>> theirs
         e.preventDefault();
         alert('لطفاً شماره همراه را به‌صورت ۰۹XXXXXXXXX وارد کنید.');
         $mobileLocal.focus();
