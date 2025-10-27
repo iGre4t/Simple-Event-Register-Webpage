@@ -20,6 +20,13 @@ function fail_redirect(string $reason = ''): void
 
 $fullname = trim($_POST['fullname'] ?? '');
 $mobileLocal = preg_replace('/\D+/', '', $_POST['mobile_local'] ?? '');
+$mobileLocal = ltrim($mobileLocal); // normalize whitespace just in case
+
+// Normalize mobile to 10 digits without the leading 0.
+// Accept inputs like 09XXXXXXXXX or 9XXXXXXXXX (client currently sends 09...).
+if (preg_match('/^09\d{9}$/', $mobileLocal)) {
+    $mobileLocal = substr($mobileLocal, 1); // strip leading 0 -> 9XXXXXXXXX
+}
 $qty = (int)($_POST['qty'] ?? 0);
 $unitPrice = (int)($_POST['unit_price'] ?? 0);
 
@@ -146,4 +153,3 @@ file_put_contents($pendingFile, json_encode($pending, JSON_UNESCAPED_UNICODE | J
 // Redirect user to Zarinpal payment page
 header('Location: https://payment.zarinpal.com/pg/StartPay/' . $authority);
 exit;
-

@@ -1,8 +1,8 @@
 <?php
 // Zarinpal integration configuration
 
-// TODO: Replace with your real merchant ID from Zarinpal panel
-define('ZARINPAL_MERCHANT_ID', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
+// Merchant ID from Zarinpal panel
+define('ZARINPAL_MERCHANT_ID', '4fc92652-620b-45fa-9d40-53c5b9154852');
 
 // Optionally force a callback URL. If empty, it will be auto-generated
 // from the current request host + path to `verify.php`.
