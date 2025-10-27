@@ -167,6 +167,12 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
       outline: none;
       text-align: right;
     }
+    .ctrl--mobile {
+      font-family: "Peyda", "IRANSans", sans-serif;
+      font-variant-numeric: normal;
+      text-align: center;
+      letter-spacing: 0.4px;
+    }
     .ctrl::placeholder {
       color: #aaaaaf;
     }
@@ -215,26 +221,30 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     .btn {
       border: none;
       border-radius: 20px;
-      background: linear-gradient(145deg, #f4f4f6, #dbdbde);
+      background: #C63437;
       color: #ffffff;
       font-weight: 700;
       font-size: 16px;
       padding: 18px;
       cursor: pointer;
-      box-shadow: 0 22px 40px rgba(0,0,0,0.22);
-      transition: transform .2s ease, box-shadow .2s ease;
+      box-shadow: 0 22px 40px rgba(198, 52, 55, 0.32);
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
     }
-    .btn:hover {
+    .btn:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 26px 46px rgba(0,0,0,0.26);
+      box-shadow: 0 26px 46px rgba(198, 52, 55, 0.42);
+      background: #ac2d30;
     }
-    .btn:focus {
+    .btn:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 4px rgba(0,0,0,0.08);
+      box-shadow: 0 0 0 4px rgba(198, 52, 55, 0.18);
     }
     .btn:disabled {
-      opacity: 0.6;
+      background: #d7d7dc;
+      color: #f7f7f8;
+      box-shadow: none;
       cursor: not-allowed;
+      transform: none;
     }
     footer {
       margin-top: 28px;
@@ -289,8 +299,13 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
               <path d="M6.62 10.79a15 15 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.56.57 1 1 0 0 1 1 1v3.61a1 1 0 0 1-1 1A17.79 17.79 0 0 1 3 6a1 1 0 0 1 1-1h3.61a1 1 0 0 1 1 1 11.36 11.36 0 0 0 .57 3.56 1 1 0 0 1-.24 1.01Z" />
             </svg>
           </span>
+<<<<<<< ours
           <input class="ctrl" id="mobile" name="mobile_local" type="tel" inputmode="numeric"
                  pattern="^09\d{9}$" minlength="11" maxlength="11" required placeholder="۰۹XXXXXXXXX" />
+=======
+          <input class="ctrl ctrl--mobile" id="mobile" name="mobile_local" type="tel" inputmode="numeric" dir="ltr"
+                 pattern="^(09|۰۹)[0-9۰-۹]{9}$" minlength="11" maxlength="11" required placeholder="۰۹XXXXXXXXX" />
+>>>>>>> theirs
         </div>
         <div class="hint">فقط موبایل ایران؛ ۱۱ رقم و با ۰۹ شروع می‌شود (نمونه: ۰۹۱۲XXXXXXX).</div>
       </div>
@@ -322,7 +337,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
       <input type="hidden" name="total_price" id="total_price" value="">
 
       <!-- دکمه -->
-      <button class="btn" type="submit" id="submitBtn">پرداخت و تکمیل ثبت‌نام</button>
+      <button class="btn" type="submit" id="submitBtn" disabled aria-disabled="true">پرداخت و تکمیل ثبت‌نام</button>
 
       <footer>© <?php echo date('Y'); ?> Sicily Exports Complex. All Rights Reserved.</footer>
     </form>
@@ -333,10 +348,19 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     const UNIT = <?php echo (int)$TICKET_PRICE; ?>;
 
     const $qty = document.getElementById('qty');
+    const $fullname = document.getElementById('fullname');
     const $totalText = document.getElementById('totalText');
     const $totalPrice = document.getElementById('total_price');
     const $mobileLocal = document.getElementById('mobile');
     const $form = document.getElementById('regForm');
+    const $submit = document.getElementById('submitBtn');
+
+    const PERSIAN_DIGITS = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+    const EN_DIGITS = ['0','1','2','3','4','5','6','7','8','9'];
+
+    function toEnglishDigits(str){
+      return str.replace(/[۰-۹]/g, d => EN_DIGITS[PERSIAN_DIGITS.indexOf(d)] ?? d);
+    }
 
     function toPersianDigits(n){
       return (n+'').replace(/\d/g, d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -344,24 +368,62 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     function formatRial(n){
       return toPersianDigits(n.toLocaleString('fa-IR')) + ' ریال';
     }
+    function renderMobileDigits(digits){
+      $mobileLocal.value = digits.replace(/\d/g, d => PERSIAN_DIGITS[d]);
+    }
+    function getMobileDigits(){
+      const normalized = toEnglishDigits($mobileLocal.value).replace(/\D/g, '');
+      return normalized.slice(0, 11);
+    }
+    function sanitizeMobile(){
+      const digits = getMobileDigits();
+      renderMobileDigits(digits);
+      return digits;
+    }
     function updateTotal(){
       const q = parseInt($qty.value || '1',10);
       const total = q * UNIT;
       $totalText.textContent = formatRial(total);
       $totalPrice.value = total;
     }
+    function toggleSubmit(mobileDigits){
+      const digits = mobileDigits ?? sanitizeMobile();
+      const fullnameOk = $fullname.value.trim().length > 0;
+      const mobileOk = /^09\d{9}$/.test(digits);
+      const qtyOk = Boolean($qty.value);
+      const enable = fullnameOk && mobileOk && qtyOk;
+      $submit.disabled = !enable;
+      $submit.setAttribute('aria-disabled', String(!enable));
+    }
     updateTotal();
     $qty.addEventListener('change', updateTotal);
+<<<<<<< ours
 
     // اعتبارسنجی ساده در ارسال
     $form.addEventListener('submit', function(e){
       // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
       if(!/^09\d{9}$/.test($mobileLocal.value)){
+=======
+    $qty.addEventListener('change', () => toggleSubmit());
+    $fullname.addEventListener('input', () => toggleSubmit());
+    $mobileLocal.addEventListener('input', () => {
+      const digits = sanitizeMobile();
+      toggleSubmit(digits);
+    });
+    toggleSubmit();
+
+    // اعتبارسنجی ساده در ارسال
+    $form.addEventListener('submit', function(e){
+      const digits = sanitizeMobile();
+      // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
+      if(!/^09\d{9}$/.test(digits)){
+>>>>>>> theirs
         e.preventDefault();
         alert('لطفاً شماره همراه را به‌صورت ۰۹XXXXXXXXX وارد کنید.');
         $mobileLocal.focus();
         return false;
       }
+      $mobileLocal.value = digits;
       // مقدار total هم آپدیت باشد
       updateTotal();
     });
