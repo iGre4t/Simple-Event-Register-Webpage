@@ -1,5 +1,7 @@
 <?php
-// Handle ticket purchase submission and persist attendee information.
+// Handle ticket purchase: validate input, create Zarinpal payment request, redirect to gateway.
+
+require_once __DIR__ . '/config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
@@ -33,23 +35,19 @@ if ($unitPrice <= 0) {
     fail_redirect('invalid_price');
 }
 
-$totalExpected = $unitPrice * $qty;
+$totalExpected = $unitPrice * $qty; // IRR (Rial)
 $mobileFull = '+98' . $mobileLocal;
 
-$smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
-$smsConfig = is_readable($smsConfigPath) ? require $smsConfigPath : [];
-
-// All purchases are considered successful for now.
+// Storage for pending orders (keyed by Authority)
 $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
-if (!is_dir($storageDir)) {
-    if (!mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
-        fail_redirect('storage_error');
-    }
+if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
+    fail_redirect('storage_error');
+}
+if (!is_dir($storageDir . DIRECTORY_SEPARATOR . 'pending')) {
+    @mkdir($storageDir . DIRECTORY_SEPARATOR . 'pending', 0775, true);
 }
 
-/**
- * Generate a unique tag composed of a timestamp and a queue number.
- */
+// Generate a local order tag (human-friendly tracking)
 function generate_tag(string $storageDir): string
 {
     $counterFile = $storageDir . DIRECTORY_SEPARATOR . 'counter.txt';
@@ -57,22 +55,18 @@ function generate_tag(string $storageDir): string
     if ($handle === false) {
         fail_redirect('counter_error');
     }
-
     try {
         if (!flock($handle, LOCK_EX)) {
             fail_redirect('counter_lock');
         }
-
         rewind($handle);
         $last = trim(stream_get_contents($handle));
         $number = ($last === '' || !ctype_digit($last)) ? 0 : (int)$last;
         $number++;
-
         ftruncate($handle, 0);
         rewind($handle);
         fwrite($handle, (string)$number);
         fflush($handle);
-
         $timestamp = date('YmdHis');
         return sprintf('%s-%05d', $timestamp, $number);
     } finally {
@@ -81,118 +75,75 @@ function generate_tag(string $storageDir): string
     }
 }
 
-/**
- * Send a notification SMS using the SMS.ir "verify" endpoint.
- */
-function notify_admin_via_sms(array $config, array $context): void
-{
-    if (!extension_loaded('curl')) {
-        error_log('SMS notification skipped: cURL extension is not available.');
-        return;
-    }
-
-    $apiKey = trim((string)($config['api_key'] ?? ''));
-    $templateId = (int)($config['template_id'] ?? 0);
-    $adminMobile = preg_replace('/\D+/', '', (string)($config['admin_mobile'] ?? ''));
-    $parameterName = trim((string)($config['parameter_name'] ?? ''));
-
-    if ($apiKey === '' || $templateId <= 0 || $adminMobile === '' || $parameterName === '') {
-        // Configuration is incomplete; silently skip sending.
-        return;
-    }
-
-    $details = sprintf(
-        "ثبت نام جدید%sنام: %s%sشماره: %s%sتعداد بلیت: %d%sمجموع پرداختی: %s ریال",
-        PHP_EOL . PHP_EOL,
-        $context['fullname'],
-        PHP_EOL,
-        $context['mobile'],
-        PHP_EOL,
-        $context['qty'],
-        PHP_EOL,
-        number_format($context['total'])
-    );
-
-    $payload = [
-        'mobile' => $adminMobile,
-        'templateId' => $templateId,
-        'parameters' => [
-            [
-                'name' => $parameterName,
-                'value' => $details,
-            ],
-        ],
-    ];
-
-    $ch = curl_init('https://api.sms.ir/v1/send/verify');
-    if ($ch === false) {
-        error_log('SMS notification skipped: unable to initialise cURL.');
-        return;
-    }
-
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_MAXREDIRS => 5,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Accept: text/plain',
-            'x-api-key: ' . $apiKey,
-        ],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-    ]);
-
-    $response = curl_exec($ch);
-    if ($response === false) {
-        error_log('SMS.ir request failed: ' . curl_error($ch));
-    } else {
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if ($status < 200 || $status >= 300) {
-            error_log(sprintf('SMS.ir request returned status %d: %s', $status, $response));
-        }
-    }
-
-    curl_close($ch);
-}
-
 $tag = generate_tag($storageDir);
 
-$fileName = sprintf('%d tickets.csv', $qty);
-$filePath = $storageDir . DIRECTORY_SEPARATOR . $fileName;
-$fileHandle = fopen($filePath, 'a');
-if ($fileHandle === false) {
-    fail_redirect('file_error');
+// Build Zarinpal request payload
+$payload = [
+    'merchant_id' => ZARINPAL_MERCHANT_ID,
+    'amount' => $totalExpected,
+    'callback_url' => zarinpal_build_callback_url(),
+    'description' => 'Transaction for event tickets',
+    'metadata' => [
+        'mobile' => '0' . $mobileLocal,
+        'order_id' => $tag,
+    ],
+];
+if (ZARINPAL_CURRENCY) {
+    $payload['currency'] = ZARINPAL_CURRENCY;
 }
 
-if (!flock($fileHandle, LOCK_EX)) {
-    fclose($fileHandle);
-    fail_redirect('file_lock');
+// Call Zarinpal payment request API
+$ch = curl_init();
+curl_setopt_array($ch, [
+    CURLOPT_URL => ZARINPAL_REQUEST_URL,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_ENCODING => '',
+    CURLOPT_MAXREDIRS => 10,
+    CURLOPT_TIMEOUT => 30,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+    CURLOPT_CUSTOMREQUEST => 'POST',
+    CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    CURLOPT_HTTPHEADER => [
+        'Content-Type: application/json',
+        'Accept: application/json',
+    ],
+]);
+
+$responseBody = curl_exec($ch);
+$curlErr = curl_error($ch);
+curl_close($ch);
+
+if ($responseBody === false || $curlErr) {
+    fail_redirect('request_failed');
 }
 
-try {
-    $stats = fstat($fileHandle);
-    $needsHeader = $stats !== false && ($stats['size'] ?? 0) === 0;
-    if ($needsHeader) {
-        fputcsv($fileHandle, ['tag', 'نام و نام خانوادگی', 'شماره تلفن همراه', 'مجموع مبلغ']);
-    }
-
-    fputcsv($fileHandle, [$tag, $fullname, $mobileFull, $totalExpected]);
-} finally {
-    fflush($fileHandle);
-    flock($fileHandle, LOCK_UN);
-    fclose($fileHandle);
+$response = json_decode($responseBody, true);
+if (!is_array($response)) {
+    fail_redirect('bad_response');
 }
 
-notify_admin_via_sms($smsConfig, [
+$code = $response['data']['code'] ?? null;
+$authority = $response['data']['authority'] ?? null;
+if ($code !== 100 || !$authority) {
+    $msg = $response['errors'][0]['message'] ?? ($response['data']['message'] ?? 'request_denied');
+    fail_redirect('code_' . (string)$code . '_' . preg_replace('/[^A-Za-z0-9_\-]/', '', (string)$msg));
+}
+
+// Save pending order details for verification step
+$pending = [
+    'tag' => $tag,
     'fullname' => $fullname,
     'mobile' => $mobileFull,
     'qty' => $qty,
+    'unit_price' => $unitPrice,
     'total' => $totalExpected,
-]);
+    'created_at' => date('c'),
+];
+$pendingFile = $storageDir . DIRECTORY_SEPARATOR . 'pending' . DIRECTORY_SEPARATOR . $authority . '.json';
+file_put_contents($pendingFile, json_encode($pending, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
-header('Location: success.php?tag=' . urlencode($tag));
+// Redirect user to Zarinpal payment page
+header('Location: https://payment.zarinpal.com/pg/StartPay/' . $authority);
 exit;
+

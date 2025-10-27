@@ -352,21 +352,24 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   const $form = document.getElementById('regForm');
   const $submit = document.getElementById('submitBtn');
 
-  const PERSIAN_DIGITS = ['?','?','?','?','?','?','?','?','?','?'];
-  const EN_DIGITS = ['0','1','2','3','4','5','6','7','8','9'];
+  const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹'.split('');
+  const EN_DIGITS = '0123456789'.split('');
 
   function toEnglishDigits(str){
-    return str.replace(/[?-?]/g, d => EN_DIGITS[PERSIAN_DIGITS.indexOf(d)] ?? d);
+    return str
+      .replace(/[۰-۹]/g, d => EN_DIGITS[PERSIAN_DIGITS.indexOf(d)] ?? d)
+      .replace(/[٠-٩]/g, d => EN_DIGITS['٠١٢٣٤٥٦٧٨٩'.indexOf(d)] ?? d);
   }
 
-  function toPersianDigits(n){
-    return (n+'').replace(/\d/g, d=>'??????????'[d]);
+  function toPersianDigits(value){
+    return (value + '').replace(/\d/g, d => PERSIAN_DIGITS[Number(d)]);
   }
+
   function formatRial(n){
-    return toPersianDigits(n.toLocaleString('fa-IR')) + ' ????';
+    return toPersianDigits(n.toLocaleString('fa-IR')) + ' ریال';
   }
   function renderMobileDigits(digits){
-    $mobileLocal.value = digits.replace(/\d/g, d => PERSIAN_DIGITS[d]);
+    $mobileLocal.value = digits.replace(/\d/g, d => PERSIAN_DIGITS[Number(d)] ?? d);
   }
   function getMobileDigits(){
     const normalized = toEnglishDigits($mobileLocal.value).replace(/\D/g, '');
@@ -430,7 +433,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   $fullname.addEventListener('blur', () => {
     const ok = $fullname.value.trim().length > 0;
     markInvalid($fullname, !ok);
-    if(!ok){ showError($fullnameError, '??? ? ???????????? ?? ???? ????.'); }
+    if(!ok){ showError($fullnameError, 'نام و نام خانوادگی را کامل وارد کنید.'); }
   });
   $mobileLocal.addEventListener('input', () => {
     const digits = sanitizeMobile();
@@ -438,22 +441,22 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     const mobileOk = /^09\d{9}$/.test(digits);
     const hasAny = digits.length > 0;
     markInvalid($mobileLocal, hasAny && !mobileOk);
-    if(hasAny && !mobileOk){ showError($mobileError, '????? ????? ???? ?? ??? ? ?? ?? ???? ???.'); } else { hideError($mobileError); }
+    if(hasAny && !mobileOk){ showError($mobileError, 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.'); } else { hideError($mobileError); }
   });
   toggleSubmit();
 
-  // ?????????? ???? ?? ?????
+    // اعتبارسنجی نهایی پیش از ارسال فرم
   $form.addEventListener('submit', function(e){
     const digits = sanitizeMobile();
     const nameOk = $fullname.value.trim().length > 0;
     const phoneOk = /^09\d{9}$/.test(digits);
     markInvalid($fullname, !nameOk);
     markInvalid($mobileLocal, !phoneOk);
-    if(!nameOk){ showError($fullnameError, '??? ? ???????????? ?? ???? ????.'); } else { hideError($fullnameError); }
-    if(!phoneOk){ showError($mobileError, '????? ????? ???? ?? ??? ? ?? ?? ???? ???.'); } else { hideError($mobileError); }
+    if(!nameOk){ showError($fullnameError, 'نام و نام خانوادگی را کامل وارد کنید.'); } else { hideError($fullnameError); }
+    if(!phoneOk){ showError($mobileError, 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.'); } else { hideError($mobileError); }
     if(!phoneOk){
       e.preventDefault();
-      alert('????? ????? ????? ?? ??????? ??XXXXXXXXX ???? ????.');
+      alert('شماره موبایل وارد شده با الگوی 09XXXXXXXXX مطابقت ندارد.');
       $mobileLocal.focus();
       return false;
     }
