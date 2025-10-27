@@ -22,7 +22,7 @@
 
 /* ------------------ 2. متغیرها ------------------ */
 :root {
-  --brand: #FF7A00;
+  --brand: #C63437;
   --text: #222;
   --muted: #6b7280;
   --bg: #f8fafc;
@@ -163,7 +163,7 @@ label {
   transition: .2s;
 }
 .btn:hover {
-  background: #e56e00;
+  background: #a12a2c;
   transform: translateY(-1px);
 }
 .btn:active {
