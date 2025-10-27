@@ -264,6 +264,9 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
         padding: 0 14px;
       }
     }
+      .input-wrap.invalid { border-color: #e03131; box-shadow: 0 0 0 4px rgba(224,49,49,0.12); }
+      .error-hint{color:#e03131;font-size:12px;margin-top:6px;}
+    [hidden]{display:none !important;}
   </style>
 
 </head>
@@ -339,83 +342,124 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   </div>
 
   <script>
-    // قیمت واحد از سرور
-    const UNIT = <?php echo (int)$TICKET_PRICE; ?>;
+  const UNIT = <?php echo (int)$TICKET_PRICE; ?>;
 
-    const $qty = document.getElementById('qty');
-    const $fullname = document.getElementById('fullname');
-    const $totalText = document.getElementById('totalText');
-    const $totalPrice = document.getElementById('total_price');
-    const $mobileLocal = document.getElementById('mobile');
-    const $form = document.getElementById('regForm');
-    const $submit = document.getElementById('submitBtn');
+  const $qty = document.getElementById('qty');
+  const $fullname = document.getElementById('fullname');
+  const $totalText = document.getElementById('totalText');
+  const $totalPrice = document.getElementById('total_price');
+  const $mobileLocal = document.getElementById('mobile');
+  const $form = document.getElementById('regForm');
+  const $submit = document.getElementById('submitBtn');
 
-    const PERSIAN_DIGITS = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-    const EN_DIGITS = ['0','1','2','3','4','5','6','7','8','9'];
+  const PERSIAN_DIGITS = ['?','?','?','?','?','?','?','?','?','?'];
+  const EN_DIGITS = ['0','1','2','3','4','5','6','7','8','9'];
 
-    function toEnglishDigits(str){
-      return str.replace(/[۰-۹]/g, d => EN_DIGITS[PERSIAN_DIGITS.indexOf(d)] ?? d);
-    }
+  function toEnglishDigits(str){
+    return str.replace(/[?-?]/g, d => EN_DIGITS[PERSIAN_DIGITS.indexOf(d)] ?? d);
+  }
 
-    function toPersianDigits(n){
-      return (n+'').replace(/\d/g, d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+  function toPersianDigits(n){
+    return (n+'').replace(/\d/g, d=>'??????????'[d]);
+  }
+  function formatRial(n){
+    return toPersianDigits(n.toLocaleString('fa-IR')) + ' ????';
+  }
+  function renderMobileDigits(digits){
+    $mobileLocal.value = digits.replace(/\d/g, d => PERSIAN_DIGITS[d]);
+  }
+  function getMobileDigits(){
+    const normalized = toEnglishDigits($mobileLocal.value).replace(/\D/g, '');
+    return normalized.slice(0, 11);
+  }
+  function sanitizeMobile(){
+    const digits = getMobileDigits();
+    renderMobileDigits(digits);
+    return digits;
+  }
+  function updateTotal(){
+    const q = parseInt($qty.value || '1',10);
+    const total = q * UNIT;
+    $totalText.textContent = formatRial(total);
+    $totalPrice.value = total;
+  }
+  function toggleSubmit(mobileDigits){
+    const digits = mobileDigits ?? sanitizeMobile();
+    const fullnameOk = $fullname.value.trim().length > 0;
+    const mobileOk = /^09\d{9}$/.test(digits);
+    const qtyOk = Boolean($qty.value);
+    const enable = fullnameOk && mobileOk && qtyOk;
+    $submit.disabled = !enable;
+    $submit.setAttribute('aria-disabled', String(!enable));
+  }
+  function markInvalid(el, invalid){
+    const wrap = el.closest('.input-wrap');
+    if(wrap){
+      wrap.classList.toggle('invalid', Boolean(invalid));
     }
-    function formatRial(n){
-      return toPersianDigits(n.toLocaleString('fa-IR')) + ' ریال';
+  }
+  function showError(el, msg){ el.textContent = msg; el.hidden = false; }
+  function hideError(el){ el.hidden = true; }
+
+  function ensureErrorHint(inputEl, id){
+    let el = document.getElementById(id);
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'error-hint';
+      el.id = id;
+      el.hidden = true;
+      const field = inputEl.closest('.field');
+      if(field){ field.appendChild(el); }
     }
-    function renderMobileDigits(digits){
-      $mobileLocal.value = digits.replace(/\d/g, d => PERSIAN_DIGITS[d]);
-    }
-    function getMobileDigits(){
-      const normalized = toEnglishDigits($mobileLocal.value).replace(/\D/g, '');
-      return normalized.slice(0, 11);
-    }
-    function sanitizeMobile(){
-      const digits = getMobileDigits();
-      renderMobileDigits(digits);
-      return digits;
-    }
-    function updateTotal(){
-      const q = parseInt($qty.value || '1',10);
-      const total = q * UNIT;
-      $totalText.textContent = formatRial(total);
-      $totalPrice.value = total;
-    }
-    function toggleSubmit(mobileDigits){
-      const digits = mobileDigits ?? sanitizeMobile();
-      const fullnameOk = $fullname.value.trim().length > 0;
-      const mobileOk = /^09\d{9}$/.test(digits);
-      const qtyOk = Boolean($qty.value);
-      const enable = fullnameOk && mobileOk && qtyOk;
-      $submit.disabled = !enable;
-      $submit.setAttribute('aria-disabled', String(!enable));
-    }
+    return el;
+  }
+
+  const $fullnameError = ensureErrorHint($fullname, 'fullnameError');
+  const $mobileError = ensureErrorHint($mobileLocal, 'mobileError');
+
+  updateTotal();
+  $qty.addEventListener('change', () => {
     updateTotal();
-    $qty.addEventListener('change', () => {
-      updateTotal();
-      toggleSubmit();
-    });
-    $fullname.addEventListener('input', () => toggleSubmit());
-    $mobileLocal.addEventListener('input', () => {
-      const digits = sanitizeMobile();
-      toggleSubmit(digits);
-    });
     toggleSubmit();
+  });
+  $fullname.addEventListener('input', () => {
+    toggleSubmit();
+    const ok = $fullname.value.trim().length > 0;
+    if(ok){ markInvalid($fullname, false); hideError($fullnameError); }
+  });
+  $fullname.addEventListener('blur', () => {
+    const ok = $fullname.value.trim().length > 0;
+    markInvalid($fullname, !ok);
+    if(!ok){ showError($fullnameError, '??? ? ???????????? ?? ???? ????.'); }
+  });
+  $mobileLocal.addEventListener('input', () => {
+    const digits = sanitizeMobile();
+    toggleSubmit(digits);
+    const mobileOk = /^09\d{9}$/.test(digits);
+    const hasAny = digits.length > 0;
+    markInvalid($mobileLocal, hasAny && !mobileOk);
+    if(hasAny && !mobileOk){ showError($mobileError, '????? ????? ???? ?? ??? ? ?? ?? ???? ???.'); } else { hideError($mobileError); }
+  });
+  toggleSubmit();
 
-    // اعتبارسنجی ساده در ارسال
-    $form.addEventListener('submit', function(e){
-      const digits = sanitizeMobile();
-      // چک شماره: باید ۱۱ رقم و با ۰۹ شروع شود
-      if(!/^09\d{9}$/.test(digits)){
-        e.preventDefault();
-        alert('لطفاً شماره همراه را به‌صورت ۰۹XXXXXXXXX وارد کنید.');
-        $mobileLocal.focus();
-        return false;
-      }
-      $mobileLocal.value = digits;
-      // مقدار total هم آپدیت باشد
-      updateTotal();
-    });
-  </script>
+  // ?????????? ???? ?? ?????
+  $form.addEventListener('submit', function(e){
+    const digits = sanitizeMobile();
+    const nameOk = $fullname.value.trim().length > 0;
+    const phoneOk = /^09\d{9}$/.test(digits);
+    markInvalid($fullname, !nameOk);
+    markInvalid($mobileLocal, !phoneOk);
+    if(!nameOk){ showError($fullnameError, '??? ? ???????????? ?? ???? ????.'); } else { hideError($fullnameError); }
+    if(!phoneOk){ showError($mobileError, '????? ????? ???? ?? ??? ? ?? ?? ???? ???.'); } else { hideError($mobileError); }
+    if(!phoneOk){
+      e.preventDefault();
+      alert('????? ????? ????? ?? ??????? ??XXXXXXXXX ???? ????.');
+      $mobileLocal.focus();
+      return false;
+    }
+    $mobileLocal.value = digits;
+    updateTotal();
+  });
+</script>
 </body>
 </html>
