@@ -13,6 +13,54 @@ function fail_redirect(string $reason = ''): void
     exit;
 }
 
+// Append a line to storage/sms.log for debugging SMS behavior
+function sms_log(string $line): void
+{
+    $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+    if (!is_dir($storageDir)) {
+        @mkdir($storageDir, 0775, true);
+    }
+    $logFile = $storageDir . DIRECTORY_SEPARATOR . 'sms.log';
+    $timestamp = date('Y-m-d H:i:s');
+    @file_put_contents($logFile, "[$timestamp] $line" . PHP_EOL, FILE_APPEND);
+}
+
+// Minimal helper to call SMS.ir verify (templated) endpoint
+function smsir_send_template(string $apiKey, string $mobile, int $templateId, string $parameterName, string $value): array
+{
+    $payload = [
+        'mobile' => $mobile,
+        'templateId' => $templateId,
+        'parameters' => [[
+            'name' => $parameterName,
+            'value' => $value,
+        ]],
+    ];
+    $ch = curl_init('https://api.sms.ir/v1/send/verify');
+    if ($ch === false) {
+        return ['ok' => false, 'error' => 'curl_init_failed'];
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'x-api-key: ' . $apiKey,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    ]);
+    $body = curl_exec($ch);
+    $err = curl_error($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($body === false) {
+        return ['ok' => false, 'status' => $code, 'error' => $err ?: 'request_failed'];
+    }
+    $json = json_decode($body, true);
+    return ['ok' => $err === '' && $code >= 200 && $code < 300, 'status' => $code, 'response' => $json ?? $body];
+}
+
 $status = $_GET['Status'] ?? '';
 $authority = $_GET['Authority'] ?? '';
 
@@ -148,43 +196,55 @@ if (!is_file($completedMarker)) {
             $templateId = (int)($smsConfig['template_id'] ?? 0);
             $adminMobile = preg_replace('/\D+/', '', (string)($smsConfig['admin_mobile'] ?? ''));
             $parameterName = trim((string)($smsConfig['parameter_name'] ?? ''));
-            if ($apiKey !== '' && $templateId > 0 && $adminMobile !== '' && $parameterName !== '' && extension_loaded('curl')) {
-                $details = sprintf(
-                    "New paid order%sName: %s%sMobile: %s%sQty: %d%sAmount: %s%sRefID: %s",
-                    PHP_EOL . PHP_EOL,
-                    (string)($pending['fullname'] ?? ''),
-                    PHP_EOL,
-                    (string)($pending['mobile'] ?? ''),
-                    PHP_EOL,
-                    (int)($pending['qty'] ?? 0),
-                    PHP_EOL,
-                    number_format((int)($pending['total'] ?? 0)),
-                    PHP_EOL,
-                    (string)$refId
-                );
-                $smsPayload = [
-                    'mobile' => $adminMobile,
-                    'templateId' => $templateId,
-                    'parameters' => [[
-                        'name' => $parameterName,
-                        'value' => $details,
-                    ]],
-                ];
-                $ch2 = curl_init('https://api.sms.ir/v1/send/verify');
-                if ($ch2 !== false) {
-                    curl_setopt_array($ch2, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_CUSTOMREQUEST => 'POST',
-                        CURLOPT_HTTPHEADER => [
-                            'Content-Type: application/json',
-                            'Accept: text/plain',
-                            'x-api-key: ' . $apiKey,
-                        ],
-                        CURLOPT_POSTFIELDS => json_encode($smsPayload, JSON_UNESCAPED_UNICODE),
-                    ]);
-                    curl_exec($ch2);
-                    curl_close($ch2);
+            if ($apiKey !== '' && $adminMobile !== '' && extension_loaded('curl')) {
+                if ($templateId > 0 && $parameterName !== '') {
+                    // Persian admin notification text
+                    $details = "ثبت سفارش جدید" . PHP_EOL .
+                               'نام: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                               'موبایل: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
+                               'تعداد: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                               'مبلغ: ' . number_format((int)($pending['total'] ?? 0)) . ' ریال' . PHP_EOL .
+                               'RefID: ' . (string)$refId . PHP_EOL .
+                               'برچسب: ' . (string)($pending['tag'] ?? '');
+
+                    $res = smsir_send_template($apiKey, $adminMobile, $templateId, $parameterName, $details);
+                    sms_log('SMS.ir verify send -> mobile=' . $adminMobile . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0));
+                } else {
+                    sms_log('SMS skipped: template_id/parameter_name not set');
                 }
+                // Send confirmation SMS to buyer
+                $buyerTemplateId = (int)($smsConfig['buyer_template_id'] ?? 0);
+                $buyerParameterName = trim((string)($smsConfig['buyer_parameter_name'] ?? ''));
+                // Fallback to admin template config if buyer-specific not set
+                if ($buyerTemplateId <= 0) { $buyerTemplateId = $templateId; }
+                if ($buyerParameterName === '') { $buyerParameterName = $parameterName; }
+
+                // Normalize buyer mobile to 09xxxxxxxxx for SMS.ir
+                $buyerMobile = '';
+                $savedMobile = (string)($pending['mobile'] ?? '');
+                $digits = preg_replace('/\D+/', '', $savedMobile);
+                if (preg_match('/^98(9\d{9})$/', $digits, $m)) {
+                    $buyerMobile = '0' . $m[1];
+                } elseif (preg_match('/^09\d{9}$/', $savedMobile)) {
+                    $buyerMobile = $savedMobile;
+                } elseif (preg_match('/^(9\d{9})$/', $digits, $m)) {
+                    $buyerMobile = '0' . $m[1];
+                }
+
+                if ($buyerMobile !== '' && $buyerTemplateId > 0 && $buyerParameterName !== '') {
+                    $buyerMsg = "پرداخت شما با موفقیت ثبت شد" . PHP_EOL .
+                                'نام: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
+                                'تعداد: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
+                                'مبلغ: ' . number_format((int)($pending['total'] ?? 0)) . ' ریال' . PHP_EOL .
+                                'کدرهگیری: ' . (string)$refId . PHP_EOL .
+                                'برچسب: ' . (string)($pending['tag'] ?? '');
+                    $resBuyer = smsir_send_template($apiKey, $buyerMobile, $buyerTemplateId, $buyerParameterName, $buyerMsg);
+                    sms_log('SMS.ir verify send (buyer) -> mobile=' . $buyerMobile . ' status=' . ($resBuyer['status'] ?? 'n/a') . ' ok=' . (int)($resBuyer['ok'] ?? 0));
+                } else {
+                    sms_log('Buyer SMS skipped: mobile/template unset or invalid');
+                }
+            } else {
+                sms_log('SMS skipped: missing api_key/admin_mobile or curl not loaded');
             }
         }
     }
@@ -195,4 +255,3 @@ $tag = (string)($pending['tag'] ?? '');
 $qs = http_build_query(['tag' => $tag, 'ref_id' => (string)$refId]);
 header('Location: success.php?' . $qs);
 exit;
-

@@ -12,4 +12,9 @@ return [
 
     // نام پارامتری که در تمپلیت برای نمایش متن دلخواه استفاده می‌کنید.
     'parameter_name' => 'DETAILS',
+
+    // Optional: buyer-specific template config. If left as defaults,
+    // the admin template_id/parameter_name will be reused for buyer SMS.
+    'buyer_template_id' => 0,
+    'buyer_parameter_name' => 'DETAILS',
 ];

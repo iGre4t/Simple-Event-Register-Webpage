@@ -55,6 +55,7 @@ if (!is_dir($storageDir . DIRECTORY_SEPARATOR . 'pending')) {
 }
 
 // Generate a local order tag (human-friendly tracking)
+// Now simplified: numeric counter only (zero-padded), no dashes or dots
 function generate_tag(string $storageDir): string
 {
     $counterFile = $storageDir . DIRECTORY_SEPARATOR . 'counter.txt';
@@ -74,8 +75,8 @@ function generate_tag(string $storageDir): string
         rewind($handle);
         fwrite($handle, (string)$number);
         fflush($handle);
-        $timestamp = date('YmdHis');
-        return sprintf('%s-%05d', $timestamp, $number);
+        // Return a short, fixed-width numeric tag like 00001
+        return sprintf('%05d', $number);
     } finally {
         flock($handle, LOCK_UN);
         fclose($handle);
@@ -89,10 +90,13 @@ $payload = [
     'merchant_id' => ZARINPAL_MERCHANT_ID,
     'amount' => $totalExpected,
     'callback_url' => zarinpal_build_callback_url(),
-    'description' => 'Transaction for event tickets',
+    // Put the attendee list number (internal tag) in Zarinpal description
+    'description' => $tag,
     'metadata' => [
         'mobile' => '0' . $mobileLocal,
         'order_id' => $tag,
+        // Include full name so it appears in Zarinpal (if supported)
+        'name' => $fullname,
     ],
 ];
 if (ZARINPAL_CURRENCY) {
