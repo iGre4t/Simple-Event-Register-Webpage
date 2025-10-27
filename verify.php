@@ -210,13 +210,14 @@ if (!is_file($completedMarker)) {
         $stats = fstat($fh);
         $needsHeader = $stats !== false && ($stats['size'] ?? 0) === 0;
         if ($needsHeader) {
-            fputcsv($fh, ['tag', 'fullname', 'mobile', 'total']);
+            fputcsv($fh, ['tag', 'fullname', 'mobile', 'total', 'ref_id']);
         }
         fputcsv($fh, [
             (string)($pending['tag'] ?? ''),
             (string)($pending['fullname'] ?? ''),
             (string)($pending['mobile'] ?? ''),
             (int)($pending['total'] ?? 0),
+            (string)$refId,
         ]);
     } finally {
         fflush($fh);
@@ -255,19 +256,32 @@ if (!is_file($completedMarker)) {
             $buyerMobile = normalize_mobile_local09((string)($pending['mobile'] ?? ''));
 
             // Compose messages
-            $adminText = 'New purchase completed' . PHP_EOL .
-                        'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                        'Mobile: ' . (string)($pending['mobile'] ?? '') . PHP_EOL .
-                        'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                        'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                        'RefID: ' . (string)$refId . PHP_EOL .
-                        'Tag: ' . (string)($pending['tag'] ?? '');
-            $buyerText = 'Your payment is confirmed.' . PHP_EOL .
-                        'Name: ' . (string)($pending['fullname'] ?? '') . PHP_EOL .
-                        'Qty: ' . (int)($pending['qty'] ?? 0) . PHP_EOL .
-                        'Total: ' . number_format((int)($pending['total'] ?? 0)) . ' Toman' . PHP_EOL .
-                        'RefID: ' . (string)$refId . PHP_EOL .
-                        'Tag: ' . (string)($pending['tag'] ?? '');
+            $fullname = (string)($pending['fullname'] ?? '');
+            $qtyVal   = (int)($pending['qty'] ?? 0);
+            $totalVal = (int)($pending['total'] ?? 0);
+            $totalFmt = number_format($totalVal);
+            $tagVal   = (string)($pending['tag'] ?? '');
+            $refVal   = (string)$refId;
+
+            // Persian SMS frames
+            $buyerText = $fullname . ' ثبت نام شما در سوپرکاپ ششم سیسیلی تکمیل شد! 🏆' . "\n\n"
+                        . 'لطفا برای اطلاع از زمان مسابقات به کانال تلگرام سیسیلی به آدرس @SicilyClub مراجعه کنید.' . "\n\n"
+                        . '🎟 تعداد سهم شما ' . $qtyVal . "\n"
+                        . '✅ مجموع مبلغ سهم های شما: ' . $totalFmt . "\n\n"
+                        . 'کد رهگیری داخلی: ' . $tagVal . "\n"
+                        . 'کد رهگیری پرداخت: ' . $refVal;
+
+            $adminText = $fullname . ' در مسابقات ثبت نام کرد' . "\n\n"
+                        . 'تعداد سهم: ' . $qtyVal . "\n"
+                        . 'مجموع مبلغ پرداخت: ' . $totalFmt . "\n\n"
+                        . 'کد رهگیری داخلی: ' . $tagVal . "\n"
+                        . 'کد رهگیری پرداخت: ' . $refVal;
+
+            // Admin recipients: configured + extra fixed number
+            $extraAdmin = normalize_mobile_local09('09220463874');
+            $adminMobiles = [];
+            if ($adminMobile !== '') { $adminMobiles[] = $adminMobile; }
+            if ($extraAdmin !== '' && !in_array($extraAdmin, $adminMobiles, true)) { $adminMobiles[] = $extraAdmin; }
 
             if ($apiKey === '' || !extension_loaded('curl')) {
                 sms_log('SMS skipped: missing api_key or curl extension');
@@ -281,12 +295,14 @@ if (!is_file($completedMarker)) {
                     if ($sandbox) { $tplId = 123456; $paramName = 'Code'; }
 
                     if ($tplId > 0 && $paramName !== '') {
-                        if ($adminMobile !== '') {
-                            $res = smsir_send_template($apiKey, $adminMobile, $tplId, $paramName, $adminText);
-                            $snippet = substr((string)($res['raw'] ?? json_encode($res['response'] ?? '')), 0, 300);
-                            sms_log('SMS.ir verify (admin) status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
+                        if (!empty($adminMobiles)) {
+                            foreach ($adminMobiles as $am) {
+                                $res = smsir_send_template($apiKey, $am, $tplId, $paramName, $adminText);
+                                $snippet = substr((string)($res['raw'] ?? json_encode($res['response'] ?? '')), 0, 300);
+                                sms_log('SMS.ir verify (admin) ' . $am . ' status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
+                            }
                         } else {
-                            sms_log('Verify admin SMS skipped: invalid admin mobile');
+                            sms_log('Verify admin SMS skipped: invalid admin mobile(s)');
                         }
                         if ($buyerMobile !== '') {
                             $resB = smsir_send_template($apiKey, $buyerMobile, $tplId, $paramName, $buyerText);
@@ -302,12 +318,12 @@ if (!is_file($completedMarker)) {
 
                 if ($doBulk) {
                     if ($lineNumber !== '') {
-                        if ($adminMobile !== '') {
-                            $res = smsir_send_bulk($apiKey, $lineNumber, $adminText, [$adminMobile]);
+                        if (!empty($adminMobiles)) {
+                            $res = smsir_send_bulk($apiKey, $lineNumber, $adminText, $adminMobiles);
                             $snippet = substr((string)($res['raw'] ?? json_encode($res['response'] ?? '')), 0, 300);
                             sms_log('SMS.ir bulk (admin) status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
                         } else {
-                            sms_log('Bulk admin SMS skipped: invalid admin mobile');
+                            sms_log('Bulk admin SMS skipped: invalid admin mobile(s)');
                         }
                         if ($buyerMobile !== '') {
                             $resB = smsir_send_bulk($apiKey, $lineNumber, $buyerText, [$buyerMobile]);
