@@ -43,16 +43,47 @@ function read_participants(): array {
         if (!is_file($file)) { continue; }
         if (($fh = fopen($file, 'r')) === false) { continue; }
         $lineNo = 0;
+        $header = [];
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
-            // Skip header if present
-            if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') { continue; }
+            if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
+                $header = array_map('strtolower', $row);
+                continue;
+            }
+            if (!empty($header)) {
+                $idx = array_flip($header);
+                $tag    = (string)($row[$idx['tag'] ?? -1] ?? '');
+                $name   = (string)($row[$idx['fullname'] ?? -1] ?? '');
+                $mobile = (string)($row[$idx['mobile'] ?? -1] ?? '');
+                $total  = (int)($row[$idx['total'] ?? -1] ?? 0);
+                $refId  = (string)($row[$idx['ref_id'] ?? -1] ?? '');
+                $created= (string)($row[$idx['created_at'] ?? -1] ?? '');
+                $paid   = (string)($row[$idx['paid_at'] ?? -1] ?? '');
+                $authority = (string)($row[$idx['authority'] ?? -1] ?? '');
+            } else {
+                // Legacy without header
+                $tag    = (string)($row[0] ?? '');
+                $name   = (string)($row[1] ?? '');
+                $mobile = (string)($row[2] ?? '');
+                $total  = (int)($row[3] ?? 0);
+                $refId  = (string)($row[4] ?? '');
+                $created= '';
+                $paid   = '';
+                $authority = '';
+            }
+            $ts = 0;
+            foreach ([$created, $paid] as $d) { if ($d) { $t = strtotime($d); if ($t) { $ts = $t; break; } } }
             $all[] = [
-                'tickets'  => $n,
-                'tag'      => (string)($row[0] ?? ''),
-                'fullname' => (string)($row[1] ?? ''),
-                'mobile'   => (string)($row[2] ?? ''),
-                'total'    => (int)($row[3] ?? 0),
+                'tickets'   => $n,
+                'tag'       => $tag,
+                'fullname'  => $name,
+                'mobile'    => $mobile,
+                'total'     => $total,
+                'ref_id'    => $refId,
+                'created_at'=> $created,
+                'paid_at'   => $paid,
+                'authority' => $authority,
+                'ts'        => $ts,
             ];
         }
         fclose($fh);
@@ -97,13 +128,37 @@ if (!($_SESSION['is_admin'] ?? false)) {
 
 // Logged in: compute data for participants tab
 $participants = read_participants();
-$count = count($participants);
+$countTotal = count($participants);
 
-// Sort newest last-modified? Keep as read order; optionally sort by tickets desc then name
-usort($participants, function($a, $b){
-    if ($a['tickets'] === $b['tickets']) { return strnatcasecmp($a['fullname'], $b['fullname']); }
-    return $b['tickets'] <=> $a['tickets'];
+// Filters: search and sort
+$q = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+$sort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'date_desc';
+
+if ($q !== '') {
+    $qNorm = mb_strtolower($q, 'UTF-8');
+    $participants = array_values(array_filter($participants, function($r) use ($qNorm){
+        $name = mb_strtolower((string)($r['fullname'] ?? ''), 'UTF-8');
+        $mob  = preg_replace('/\D+/', '', (string)($r['mobile'] ?? ''));
+        $qDigits = preg_replace('/\D+/', '', $qNorm);
+        return (strpos($name, $qNorm) !== false) || ($qDigits !== '' && strpos($mob, $qDigits) !== false);
+    }));
+}
+
+usort($participants, function($a, $b) use ($sort){
+    switch ($sort) {
+        case 'date_asc':
+            return ($a['ts'] <=> $b['ts']) ?: strnatcasecmp($a['fullname'], $b['fullname']);
+        case 'name':
+            return strnatcasecmp($a['fullname'], $b['fullname']);
+        case 'mobile':
+            return strnatcasecmp((string)$a['mobile'], (string)$b['mobile']);
+        case 'date_desc':
+        default:
+            return ($b['ts'] <=> $a['ts']) ?: strnatcasecmp($a['fullname'], $b['fullname']);
+    }
 });
+
+$count = count($participants);
 
 // Render admin panel with sidebar and first tab
 ?>
@@ -134,7 +189,7 @@ usort($participants, function($a, $b){
         .side-bottom { position: sticky; bottom: 0; margin-top: 24px; padding-top: 12px; border-top: 1px solid #1f2937; }
         .content { padding: 24px; }
         .content .card { max-width: none; }
-        .header-row { display:flex; gap:12px; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .header-row { display:flex; gap:12px; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
         .tag { display:inline-block; background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:4px 10px; border-radius:999px; font-size:12px; }
         table { width:100%; border-collapse: collapse; }
         th, td { text-align:right; border-bottom:1px solid #f1f5f9; padding:10px 8px; font-size:14px; }
@@ -143,6 +198,10 @@ usort($participants, function($a, $b){
         .logout { color:#fca5a5; }
         .count-box { display:flex; gap:10px; align-items:center; background:#fff7ed; border:1px solid #fed7aa; padding:10px 12px; border-radius:12px; font-weight:800; }
         .csv-hint { font-size:12px; color:#64748b; margin-top:8px; }
+        .filters { display:flex; gap:8px; align-items:center; flex-wrap: wrap; margin-top:12px; }
+        .filters .ctrl { width:auto; min-width:200px; }
+        .copy { cursor:pointer; user-select:none; }
+        @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
     </style>
 </head>
 <body>
@@ -166,6 +225,30 @@ usort($participants, function($a, $b){
                     </div>
                 </div>
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>.</div>
+                <div class="filters">
+                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو نام یا موبایل">
+                        <select class="ctrl" name="sort">
+                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>جدیدترین</option>
+                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>قدیمی‌ترین</option>
+                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>مرتب‌سازی نام</option>
+                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>مرتب‌سازی موبایل</option>
+                        </select>
+                        <button class="btn" style="width:auto; padding:10px 14px">اعمال</button>
+                    </form>
+                    <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
+                        <select class="ctrl" name="tickets">
+                            <option value="">همه تعداد بلیت</option>
+                            <option value="1">1 بلیت</option>
+                            <option value="2">2 بلیت</option>
+                            <option value="3">3 بلیت</option>
+                            <option value="4">4 بلیت</option>
+                        </select>
+                        <input class="ctrl" type="date" name="from" placeholder="از تاریخ">
+                        <input class="ctrl" type="date" name="to" placeholder="تا تاریخ">
+                        <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
+                    </form>
+                </div>
                 <div style="overflow:auto; margin-top:12px;">
                     <table>
                         <thead>
@@ -175,6 +258,8 @@ usort($participants, function($a, $b){
                                 <th>تعداد بلیت</th>
                                 <th>مبلغ کل (ریال)</th>
                                 <th>کد پیگیری</th>
+                                <th>کد رهگیری زرین‌پال</th>
+                                <th>تاریخ ثبت</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -189,7 +274,25 @@ usort($participants, function($a, $b){
                                 <td dir="ltr"><?php echo htmlspecialchars($row['mobile'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><?php echo (int)$row['tickets']; ?></td>
                                 <td><?php echo number_format((int)$row['total']); ?></td>
-                                <td><span class="tag"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                <td>
+                                  <?php if (!empty($row['ref_id'])): ?>
+                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="کپی رهگیری زرین‌پال"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                  <?php else: ?>
+                                    <span class="muted">-</span>
+                                  <?php endif; ?>
+                                </td>
+                                <td>
+                                  <?php
+                                    if (!empty($row['created_at'])) {
+                                        echo htmlspecialchars(date('Y-m-d H:i', strtotime($row['created_at'])), ENT_QUOTES, 'UTF-8');
+                                    } elseif (!empty($row['paid_at'])) {
+                                        echo htmlspecialchars(date('Y-m-d H:i', strtotime($row['paid_at'])), ENT_QUOTES, 'UTF-8');
+                                    } else {
+                                        echo '<span class="muted">-</span>';
+                                    }
+                                  ?>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -199,6 +302,20 @@ usort($participants, function($a, $b){
             </div>
         </main>
     </div>
+    <script>
+      document.addEventListener('click', function(e){
+        var el = e.target.closest('.copy');
+        if(!el) return;
+        var val = el.getAttribute('data-copy') || '';
+        if(!val) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(val).then(function(){
+            var old = el.textContent;
+            el.textContent = 'کپی شد';
+            setTimeout(function(){ el.textContent = old; }, 1000);
+          });
+        }
+      });
+    </script>
 </body>
 </html>
-

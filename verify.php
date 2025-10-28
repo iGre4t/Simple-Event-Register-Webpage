@@ -198,7 +198,8 @@ if (!is_file($completedMarker)) {
     $qty = (int)($pending['qty'] ?? 0);
     $fileName = sprintf('%d tickets.csv', max(1, min(4, $qty)));
     $filePath = $storageDir . DIRECTORY_SEPARATOR . $fileName;
-    $fh = fopen($filePath, 'a');
+    // Open for reading+appending so we can inspect header for backward compatibility
+    $fh = fopen($filePath, 'a+');
     if ($fh === false) {
         fail_redirect('file_error');
     }
@@ -208,17 +209,51 @@ if (!is_file($completedMarker)) {
     }
     try {
         $stats = fstat($fh);
-        $needsHeader = $stats !== false && ($stats['size'] ?? 0) === 0;
-        if ($needsHeader) {
-            fputcsv($fh, ['tag', 'fullname', 'mobile', 'total', 'ref_id']);
+        $fileEmpty = $stats !== false && ($stats['size'] ?? 0) === 0;
+
+        // Determine header columns if file already exists
+        $header = [];
+        if ($fileEmpty) {
+            $header = ['tag', 'fullname', 'mobile', 'total', 'ref_id', 'created_at', 'paid_at', 'authority'];
+            fputcsv($fh, $header);
+        } else {
+            // Read first line as header (if present)
+            rewind($fh);
+            $first = fgetcsv($fh);
+            if (is_array($first) && !empty($first) && strtolower((string)$first[0]) !== 'tag') {
+                // No header present; treat as legacy without header
+                $header = [];
+            } else {
+                $header = array_map('strtolower', $first ?: []);
+            }
+            // Move back to end for appending
+            fseek($fh, 0, SEEK_END);
         }
-        fputcsv($fh, [
+
+        $rowFull = [
             (string)($pending['tag'] ?? ''),
             (string)($pending['fullname'] ?? ''),
             (string)($pending['mobile'] ?? ''),
             (int)($pending['total'] ?? 0),
             (string)$refId,
-        ]);
+            (string)($pending['created_at'] ?? ''),
+            date('c'),
+            (string)$authority,
+        ];
+
+        // If header known and includes extended fields, write matching order/length
+        if (!empty($header)) {
+            $map = array_flip(['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
+            $ordered = [];
+            foreach ($header as $col) {
+                $idx = $map[$col] ?? null;
+                $ordered[] = $idx === null ? '' : $rowFull[$idx];
+            }
+            fputcsv($fh, $ordered);
+        } else {
+            // Legacy file without header: keep legacy 5 columns
+            fputcsv($fh, array_slice($rowFull, 0, 5));
+        }
     } finally {
         fflush($fh);
         flock($fh, LOCK_UN);
