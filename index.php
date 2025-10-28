@@ -386,9 +386,14 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     $totalText.textContent = formatRial(total);
     $totalPrice.value = total;
   }
+  function isFullnameValid(value){
+    const trimmed = value.trim();
+    if(!trimmed) return false;
+    return trimmed === sanitizeFullnameInput(trimmed);
+  }
   function toggleSubmit(mobileDigits){
     const digits = mobileDigits ?? sanitizeMobile();
-    const fullnameOk = $fullname.value.trim().length > 0;
+    const fullnameOk = isFullnameValid($fullname.value);
     const mobileOk = /^09\d{9}$/.test(digits);
     const qtyOk = Boolean($qty.value);
     const enable = fullnameOk && mobileOk && qtyOk;
@@ -434,6 +439,8 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   }
 
   const $fullnameError = ensureErrorHint($fullname, 'fullnameError');
+  const FULLNAME_REQUIRED_MSG = 'نام و نام خانوادگی الزامی است. لطفا فقط حروف فارسی/عربی وارد کنید.';
+  const FULLNAME_INVALID_MSG = 'فقط حروف فارسی و عربی مجاز است (بدون لاتین یا اعداد).';
   const $mobileError = ensureErrorHint($mobileLocal, 'mobileError');
 
   updateTotal();
@@ -442,13 +449,21 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     toggleSubmit();
   });
   $fullname.addEventListener('input', () => {
-    const sanitized = sanitizeFullnameInput($fullname.value);
-    if($fullname.value !== sanitized){
+    const original = $fullname.value;
+    const sanitized = sanitizeFullnameInput(original);
+    const hadInvalid = original !== sanitized;
+    if(hadInvalid){
+      showError($fullnameError, FULLNAME_INVALID_MSG);
+      markInvalid($fullname, true);
+    }
+    if(original !== sanitized){
       $fullname.value = sanitized;
     }
     toggleSubmit();
-    const ok = $fullname.value.trim().length > 0;
-    if(ok){ markInvalid($fullname, false); hideError($fullnameError); }
+    if(!hadInvalid && isFullnameValid($fullname.value)){
+      markInvalid($fullname, false);
+      hideError($fullnameError);
+    }
   });
   $fullname.addEventListener('blur', () => {
     const ok = $fullname.value.trim().length > 0;
@@ -468,7 +483,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     // اعتبارسنجی نهایی پیش از ارسال فرم
   $form.addEventListener('submit', function(e){
     const digits = sanitizeMobile();
-    const nameOk = $fullname.value.trim().length > 0;
+    const nameOk = isFullnameValid($fullname.value);
     const phoneOk = /^09\d{9}$/.test(digits);
     markInvalid($fullname, !nameOk);
     markInvalid($mobileLocal, !phoneOk);
