@@ -2,6 +2,7 @@
 // Zarinpal callback endpoint: verify payment and finalize order persistence.
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/telegram_bot.php';
 
 function fail_redirect(string $reason = ''): void
 {
@@ -198,8 +199,43 @@ if (!is_file($completedMarker)) {
     $qty = (int)($pending['qty'] ?? 0);
     $fileName = sprintf('%d tickets.csv', max(1, min(4, $qty)));
     $filePath = $storageDir . DIRECTORY_SEPARATOR . $fileName;
-    // Open for reading+appending so we can inspect header for backward compatibility
-    $fh = fopen($filePath, 'a+');
+    // If the CSV exists but has legacy format (no header), upgrade it to extended header
+    if (is_file($filePath)) {
+        $peek = fopen($filePath, 'r');
+        if ($peek !== false) {
+            $first = fgetcsv($peek);
+            fclose($peek);
+            if (!is_array($first) || empty($first) || strtolower((string)$first[0]) !== 'tag') {
+                // Read all legacy rows
+                $legacyRows = [];
+                $rfh = fopen($filePath, 'r');
+                if ($rfh !== false) {
+                    while (($r = fgetcsv($rfh)) !== false) {
+                        if ($r === [null] || $r === false) { continue; }
+                        $legacyRows[] = $r;
+                    }
+                    fclose($rfh);
+                }
+                // Rewrite file with extended header
+                $wfh = fopen($filePath, 'w');
+                if ($wfh !== false) {
+                    fputcsv($wfh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
+                    foreach ($legacyRows as $lr) {
+                        $tagL = (string)($lr[0] ?? '');
+                        $nameL = (string)($lr[1] ?? '');
+                        $mobL  = (string)($lr[2] ?? '');
+                        $totL  = (int)($lr[3] ?? 0);
+                        $refL  = (string)($lr[4] ?? '');
+                        fputcsv($wfh, [$tagL,$nameL,$mobL,$totL,$refL,'','','']);
+                    }
+                    fclose($wfh);
+                }
+            }
+        }
+    }
+
+    // Open for appending (the file now has proper header)
+    $fh = fopen($filePath, 'a');
     if ($fh === false) {
         fail_redirect('file_error');
     }
@@ -210,24 +246,8 @@ if (!is_file($completedMarker)) {
     try {
         $stats = fstat($fh);
         $fileEmpty = $stats !== false && ($stats['size'] ?? 0) === 0;
-
-        // Determine header columns if file already exists
-        $header = [];
         if ($fileEmpty) {
-            $header = ['tag', 'fullname', 'mobile', 'total', 'ref_id', 'created_at', 'paid_at', 'authority'];
-            fputcsv($fh, $header);
-        } else {
-            // Read first line as header (if present)
-            rewind($fh);
-            $first = fgetcsv($fh);
-            if (is_array($first) && !empty($first) && strtolower((string)$first[0]) !== 'tag') {
-                // No header present; treat as legacy without header
-                $header = [];
-            } else {
-                $header = array_map('strtolower', $first ?: []);
-            }
-            // Move back to end for appending
-            fseek($fh, 0, SEEK_END);
+            fputcsv($fh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
         }
 
         $rowFull = [
@@ -241,19 +261,8 @@ if (!is_file($completedMarker)) {
             (string)$authority,
         ];
 
-        // If header known and includes extended fields, write matching order/length
-        if (!empty($header)) {
-            $map = array_flip(['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
-            $ordered = [];
-            foreach ($header as $col) {
-                $idx = $map[$col] ?? null;
-                $ordered[] = $idx === null ? '' : $rowFull[$idx];
-            }
-            fputcsv($fh, $ordered);
-        } else {
-            // Legacy file without header: keep legacy 5 columns
-            fputcsv($fh, array_slice($rowFull, 0, 5));
-        }
+        // Always write extended columns in the defined order
+        fputcsv($fh, $rowFull);
     } finally {
         fflush($fh);
         flock($fh, LOCK_UN);
@@ -297,6 +306,14 @@ if (!is_file($completedMarker)) {
             $totalFmt = number_format($totalVal);
             $tagVal   = (string)($pending['tag'] ?? '');
             $refVal   = (string)$refId;
+
+            // Telegram admin notification (Persian format requested)
+            $tgText = $fullname . " در مسابقات ثبت نام کرد\n\n"
+                    . "تعداد سهم: " . $qtyVal . "\n"
+                    . "مجموع مبلغ پرداخت: " . $totalFmt . "\n\n"
+                    . "کد رهگیری داخلی: " . $tagVal . "\n"
+                    . "کد رهگیری پرداخت: " . $refVal;
+            telegram_notify_admin($tgText);
 
             // Persian SMS frames
             $buyerText = $fullname . ' ثبت نام شما در سوپرکاپ ششم سیسیلی تکمیل شد! 🏆' . "\n\n"

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 
 // Very simple credentials per request
@@ -30,7 +30,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username']
         header('Location: panel.php');
         exit;
     } else {
-        $loginError = 'نام کاربری یا رمز عبور اشتباه است';
+        $loginError = 'Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒØ§ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª';
     }
 }
 
@@ -99,7 +99,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>پنل مدیریت - ورود</title>
+        <title>Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª - ÙˆØ±ÙˆØ¯</title>
         <link rel="stylesheet" href="css/style.css">
         <style>
             .login-card { max-width: 420px; }
@@ -109,15 +109,15 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
-                <h1 class="title">ورود به پنل مدیریت</h1>
-                <p class="sub">لطفا نام کاربری و رمز عبور را وارد کنید.</p>
+                <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h1>
+                <p class="sub">Ù„Ø·ÙØ§ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ùˆ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯.</p>
                 <?php if ($loginError !== ''): ?><div class="error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                <label for="username">نام کاربری</label>
+                <label for="username">Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ</label>
                 <input class="ctrl" type="text" id="username" name="username" required placeholder="admin" autocomplete="username" />
-                <label for="password" style="margin-top:12px">رمز عبور</label>
-                <input class="ctrl" type="password" id="password" name="password" required placeholder="•••••" autocomplete="current-password" />
-                <button class="btn" type="submit" style="margin-top:16px">ورود</button>
-                <footer>پنل ساده مدیریت شرکت‌کننده‌ها</footer>
+                <label for="password" style="margin-top:12px">Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±</label>
+                <input class="ctrl" type="password" id="password" name="password" required placeholder="â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" />
+                <button class="btn" type="submit" style="margin-top:16px">ÙˆØ±ÙˆØ¯</button>
+                <footer>Ù¾Ù†Ù„ Ø³Ø§Ø¯Ù‡ Ù…Ø¯ÛŒØ±ÛŒØª Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒÙ‡Ø§</footer>
             </form>
         </div>
     </body>
@@ -167,16 +167,18 @@ $count = count($participants);
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>پنل مدیریت</title>
+    <title>Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
+        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Bold.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
         :root {
             --sidebar:#0f172a;
             --sidebar-text:#f1f5f9;
             --sidebar-muted:#94a3b8;
             --brand:#C63437;
         }
-        body { min-height: 100svh; margin:0; background:#f1f5f9; }
+        body { min-height: 100svh; margin:0; background:#f1f5f9; font-family:'PeydaWebFaNum', sans-serif; }
         .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100svh; }
         .sidebar {
             background: var(--sidebar);
@@ -207,65 +209,65 @@ $count = count($participants);
 <body>
     <div class="app">
         <aside class="sidebar">
-            <h2 class="side-title">پنل مدیریت</h2>
+            <h2 class="side-title">Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h2>
             <nav class="side-nav">
-                <a href="#participants" class="active">شرکت کننده ها</a>
+                <a href="#participants" class="active">Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§</a>
             </nav>
             <div class="side-bottom">
-                <a class="side-nav__link logout" href="panel.php?logout=1">خروج</a>
+                <a class="side-nav__link logout" href="panel.php?logout=1">Ø®Ø±ÙˆØ¬</a>
             </div>
         </aside>
         <main class="content">
             <div class="card">
                 <div class="header-row">
-                    <h1 class="title" style="margin:0">شرکت کننده ها</h1>
+                    <h1 class="title" style="margin:0">Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§</h1>
                     <div class="count-box">
-                        <span>تعداد شرکت کننده ها:</span>
+                        <span>ØªØ¹Ø¯Ø§Ø¯ Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§:</span>
                         <b><?php echo number_format($count); ?></b>
                     </div>
                 </div>
-                <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>.</div>
+                <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 <div class="filters">
-                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو نام یا موبایل">
+                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ù†Ø§Ù… ÛŒØ§ Ù…ÙˆØ¨Ø§ÛŒÙ„">
                         <select class="ctrl" name="sort">
-                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>جدیدترین</option>
-                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>قدیمی‌ترین</option>
-                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>مرتب‌سازی نام</option>
-                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>مرتب‌سازی موبایل</option>
+                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>Ø¬Ø¯ÛŒØ¯ØªØ±ÛŒÙ†</option>
+                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>Ù‚Ø¯ÛŒÙ…ÛŒâ€ŒØªØ±ÛŒÙ†</option>
+                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ù†Ø§Ù…</option>
+                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ù…ÙˆØ¨Ø§ÛŒÙ„</option>
                         </select>
-                        <button class="btn" style="width:auto; padding:10px 14px">اعمال</button>
+                        <button class="btn" style="width:auto; padding:10px 14px">Ø§Ø¹Ù…Ø§Ù„</button>
                     </form>
                     <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
                         <select class="ctrl" name="tickets">
-                            <option value="">همه تعداد بلیت</option>
-                            <option value="1">1 بلیت</option>
-                            <option value="2">2 بلیت</option>
-                            <option value="3">3 بلیت</option>
-                            <option value="4">4 بلیت</option>
+                            <option value="">Ù‡Ù…Ù‡ ØªØ¹Ø¯Ø§Ø¯ Ø¨Ù„ÛŒØª</option>
+                            <option value="1">1 Ø¨Ù„ÛŒØª</option>
+                            <option value="2">2 Ø¨Ù„ÛŒØª</option>
+                            <option value="3">3 Ø¨Ù„ÛŒØª</option>
+                            <option value="4">4 Ø¨Ù„ÛŒØª</option>
                         </select>
-                        <input class="ctrl" type="date" name="from" placeholder="از تاریخ">
-                        <input class="ctrl" type="date" name="to" placeholder="تا تاریخ">
-                        <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
+                        <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
+                        <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
+                        <button class="btn" style="width:auto; padding:10px 14px">Ø®Ø±ÙˆØ¬ÛŒ CSV</button>
                     </form>
                 </div>
                 <div style="overflow:auto; margin-top:12px;">
                     <table>
                         <thead>
                             <tr>
-                                <th>نام و نام خانوادگی</th>
-                                <th>موبایل</th>
-                                <th>تعداد بلیت</th>
-                                <th>مبلغ کل (ریال)</th>
-                                <th>کد پیگیری</th>
-                                <th>کد رهگیری زرین‌پال</th>
-                                <th>تاریخ ثبت</th>
+                                <th>Ù†Ø§Ù… Ùˆ Ù†Ø§Ù… Ø®Ø§Ù†ÙˆØ§Ø¯Ú¯ÛŒ</th>
+                                <th>Ù…ÙˆØ¨Ø§ÛŒÙ„</th>
+                                <th>ØªØ¹Ø¯Ø§Ø¯ Ø¨Ù„ÛŒØª</th>
+                                <th>Ù…Ø¨Ù„Øº Ú©Ù„ (Ø±ÛŒØ§Ù„)</th>
+                                <th>Ú©Ø¯ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ</th>
+                                <th>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„</th>
+                                <th>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="rowsBody">
                         <?php if (empty($participants)): ?>
                             <tr>
-                                <td colspan="5" class="muted">هنوز شرکت‌کننده‌ای ثبت نشده است.</td>
+                                <td colspan="5" class="muted">Ù‡Ù†ÙˆØ² Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒØ§ÛŒ Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($participants as $row): ?>
@@ -274,10 +276,10 @@ $count = count($participants);
                                 <td dir="ltr"><?php echo htmlspecialchars($row['mobile'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><?php echo (int)$row['tickets']; ?></td>
                                 <td><?php echo number_format((int)$row['total']); ?></td>
-                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
                                 <td>
                                   <?php if (!empty($row['ref_id'])): ?>
-                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="کپی رهگیری زرین‌پال"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="Ú©Ù¾ÛŒ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
                                   <?php else: ?>
                                     <span class="muted">-</span>
                                   <?php endif; ?>
@@ -311,11 +313,88 @@ $count = count($participants);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(val).then(function(){
             var old = el.textContent;
-            el.textContent = 'کپی شد';
+            el.textContent = 'Ú©Ù¾ÛŒ Ø´Ø¯';
             setTimeout(function(){ el.textContent = old; }, 1000);
           });
         }
       });
+      // Validate export form dates
+      (function(){
+        var exp = document.querySelector('.filters form + form');
+        if(!exp) return;
+        exp.addEventListener('submit', function(ev){
+          var from = exp.querySelector('input[name="from"]');
+          var to = exp.querySelector('input[name="to"]');
+          if(from && to && from.value && to.value && new Date(from.value) > new Date(to.value)){
+            ev.preventDefault(); alert('تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.');
+          }
+        });
+      })();
+    </script>
+    <script>
+      (function(){
+        var tbody = document.getElementById('rowsBody');
+        var filtersWrap = document.querySelector('.filters');
+        if(!filtersWrap || !tbody) return;
+        var formFilter = filtersWrap.querySelector('form');
+        var formExport = filtersWrap.querySelector('form + form');
+        var q = formFilter.querySelector('input[name="q"]');
+        var sort = formFilter.querySelector('select[name="sort"]');
+        var tickets = formExport.querySelector('select[name="tickets"]');
+        var from = formExport.querySelector('input[name="from"]');
+        var to = formExport.querySelector('input[name="to"]');
+        var countBox = document.querySelector('.count-box b');
+
+        function params(){
+          var p = new URLSearchParams();
+          if(q && q.value.trim()!=='') p.set('q', q.value.trim());
+          if(sort && sort.value) p.set('sort', sort.value);
+          if(tickets && tickets.value) p.set('tickets', tickets.value);
+          if(from && from.value) p.set('from', from.value);
+          if(to && to.value) p.set('to', to.value);
+          return p;
+        }
+        function validDates(){ if(!from.value || !to.value) return true; return new Date(from.value) <= new Date(to.value); }
+        async function refresh(){
+          if(!validDates()){ tbody.innerHTML = '<tr><td colspan="8" class="muted">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</td></tr>'; return; }
+          var res = await fetch('panel_data.php?' + params().toString(), {cache:'no-store'});
+          var j = await res.json();
+          if(j && j.ok){ tbody.innerHTML = j.rows_html; if(countBox) countBox.textContent = j.count; ensureHeader(); }
+        }
+        var t; if(q){ q.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(refresh, 200); }); }
+        if(sort){ sort.addEventListener('change', refresh); }
+        if(tickets){ tickets.addEventListener('change', refresh); }
+        if(from){ from.addEventListener('change', refresh); }
+        if(to){ to.addEventListener('change', refresh); }
+
+        // Add export Excel button
+        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn'; xBtn.style.cssText='width:auto; padding:10px 14px; background:#1d4ed8; box-shadow:none;'; xBtn.textContent='خروجی Excel';
+        formExport.appendChild(xBtn);
+        function openExport(url){ window.location.href = url + '?' + params().toString(); }
+        xBtn.addEventListener('click', function(){ openExport('export_excel.php'); });
+
+        // Archive action
+        document.addEventListener('click', async function(e){
+          var btn = e.target.closest('button[data-archive]');
+          if(!btn) return;
+          var tag = btn.getAttribute('data-archive');
+          if(!confirm('این مورد به آرشیو منتقل شود؟')) return;
+          var fd = new FormData(); fd.set('action','archive'); fd.set('tag', tag);
+          var r = await fetch('panel_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok) refresh(); else alert('خطا در آرشیو');
+        });
+
+        function ensureHeader(){
+          var thead = document.querySelector('table thead tr');
+          if(!thead) return;
+          var hasTools = Array.from(thead.children).some(function(th){ var s=(th.textContent||'').trim(); return s==='ابزار' || s==='اقدامات'; });
+          if(!hasTools){ var th=document.createElement('th'); th.textContent='ابزار'; thead.appendChild(th); }
+        }
+        ensureHeader();
+        refresh();
+      })();
     </script>
 </body>
 </html>
+
+

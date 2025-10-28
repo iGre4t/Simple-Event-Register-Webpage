@@ -417,6 +417,22 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     return el;
   }
 
+  // Keep only Persian/Arabic letters and spaces (no Latin or digits)
+  function sanitizeFullnameInput(value){
+    let result = '';
+    for(const ch of value){
+      if(ch === ' ' || ch === '\u200c'){ // space or ZWNJ
+        result += ch;
+        continue;
+      }
+      // keep Arabic script characters that are not numbers
+      if(/\p{Script=Arabic}/u.test(ch) && !/\p{Number}/u.test(ch)){
+        result += ch;
+      }
+    }
+    return result;
+  }
+
   const $fullnameError = ensureErrorHint($fullname, 'fullnameError');
   const $mobileError = ensureErrorHint($mobileLocal, 'mobileError');
 
@@ -426,6 +442,10 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     toggleSubmit();
   });
   $fullname.addEventListener('input', () => {
+    const sanitized = sanitizeFullnameInput($fullname.value);
+    if($fullname.value !== sanitized){
+      $fullname.value = sanitized;
+    }
     toggleSubmit();
     const ok = $fullname.value.trim().length > 0;
     if(ok){ markInvalid($fullname, false); hideError($fullnameError); }
