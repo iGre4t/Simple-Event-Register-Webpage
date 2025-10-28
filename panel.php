@@ -109,6 +109,19 @@ if (!($_SESSION['is_admin'] ?? false)) {
         </style>
     </head>
     <body>
+        <script>
+          (function(){
+            function looksBroken(s){ return /[ØÙÛ×ÂÃ]/.test(s); }
+            function fixText(s){ try { var t = decodeURIComponent(escape(s)); return /[\u0600-\u06FF]/.test(t) ? t : s; } catch(e){ return s; } }
+            function traverse(root){ var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null); var nodes=[],n; while((n=w.nextNode())) nodes.push(n); nodes.forEach(function(nd){ var v=nd.nodeValue; if(!v||!looksBroken(v)) return; var f=fixText(v); if(f!==v) nd.nodeValue=f;}); }
+            function run(root){ traverse(root||document.body); }
+            document.addEventListener('DOMContentLoaded', function(){
+              run(document.body);
+              var mo=new MutationObserver(function(rs){ rs.forEach(function(r){ if(!r.addedNodes) return; r.addedNodes.forEach(function(n){ if(n.nodeType===1) run(n); }); }); });
+              mo.observe(document.body,{childList:true,subtree:true});
+            });
+          })();
+        </script>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
                 <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h1>

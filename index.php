@@ -272,6 +272,54 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
 
 </head>
 <body>
+  <script>
+    // Repair mojibake like "ØªØ¹Ø¯Ø§Ø¯" -> "تعداد" when files were mis-encoded
+    (function(){
+      function looksBroken(s){ return /[ØÙÛ×ÂÃ]/.test(s); }
+      function fixText(s){
+        try {
+          var t = decodeURIComponent(escape(s));
+          return /[\u0600-\u06FF]/.test(t) ? t : s;
+        } catch(e){ return s; }
+      }
+      function traverse(root){
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        var nodes = []; var n;
+        while((n = walker.nextNode())) nodes.push(n);
+        nodes.forEach(function(node){
+          var v = node.nodeValue; if(!v || !looksBroken(v)) return;
+          var fixed = fixText(v); if(fixed !== v) node.nodeValue = fixed;
+        });
+      }
+      function run(root){ traverse(root || document.body); }
+      document.addEventListener('DOMContentLoaded', function(){
+        run(document.body);
+        var mo = new MutationObserver(function(recs){
+          recs.forEach(function(r){ if(!r.addedNodes) return; r.addedNodes.forEach(function(n){ if(n.nodeType===1) run(n); }); });
+        });
+        mo.observe(document.body, {childList:true, subtree:true});
+      });
+    })();
+  </script>
+  <script>
+    // Override digit helpers with correct Persian/Arabic-Indic handling
+    (function(){
+      const P = '۰۱۲۳۴۵۶۷۸۹'.split('');
+      const A = '٠١٢٣٤٥٦٧٨٩'.split('');
+      const E = '0123456789'.split('');
+      window.toEnglishDigits = function(str){
+        return String(str)
+          .replace(/[۰-۹]/g, d => E[P.indexOf(d)])
+          .replace(/[٠-٩]/g, d => E[A.indexOf(d)]);
+      };
+      window.toPersianDigits = function(value){
+        return (value + '').replace(/\d/g, d => P[Number(d)]);
+      };
+      window.formatRial = function(n){
+        return window.toPersianDigits(n.toLocaleString('fa-IR')) + ' ریال';
+      };
+    })();
+  </script>
   <div class="wrap">
     <form class="card" method="post" action="purchase.php" id="regForm" novalidate>
       <header>

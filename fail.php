@@ -48,6 +48,14 @@ $reason = $_GET['reason'] ?? '';
   </style>
 </head>
 <body>
+  <script>
+    (function(){
+      function looksBroken(s){ return /[ØÙÛ×ÂÃ]/.test(s); }
+      function fixText(s){ try{ var t=decodeURIComponent(escape(s)); return /[\u0600-\u06FF]/.test(t)?t:s; }catch(e){ return s; } }
+      function traverse(root){ var w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null); var n, arr=[]; while((n=w.nextNode())) arr.push(n); arr.forEach(function(nd){ var v=nd.nodeValue; if(!v||!looksBroken(v)) return; var f=fixText(v); if(f!==v) nd.nodeValue=f;}); }
+      document.addEventListener('DOMContentLoaded', function(){ traverse(document.body); });
+    })();
+  </script>
   <div class="box">
     <h1>خطا در ثبت اطلاعات</h1>
     <p>در پردازش پرداخت شما مشکلی رخ داد. لطفاً دوباره تلاش کنید.</p>
