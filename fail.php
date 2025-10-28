@@ -1,4 +1,6 @@
 <?php
+// Send UTF-8 so Persian text displays correctly
+header('Content-Type: text/html; charset=UTF-8');
 $reason = $_GET['reason'] ?? '';
 ?>
 <!DOCTYPE html>

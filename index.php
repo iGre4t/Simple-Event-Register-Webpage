@@ -1,4 +1,5 @@
 <?php
+header('Content-Type: text/html; charset=UTF-8');
 // ------- تنظیمات ساده -------
 $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
 ?>

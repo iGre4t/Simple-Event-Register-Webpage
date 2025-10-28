@@ -1,4 +1,6 @@
 <?php
+// Send UTF-8 so Persian text displays correctly
+header('Content-Type: text/html; charset=UTF-8');
 // Success page: show masked internal tracking code (tag + time)
 // without changing what we store in lists/CSV.
 
@@ -39,4 +41,3 @@ $masked = $tag !== '' ? ($tag . date('Hi')) : '';
   </div>
 </body>
 </html>
-

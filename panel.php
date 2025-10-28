@@ -1,5 +1,7 @@
 ﻿<?php
 session_start();
+// Force UTF-8 for all HTML responses from this page
+header('Content-Type: text/html; charset=UTF-8');
 
 // Very simple credentials per request
 $ADMIN_USER = 'admin';
