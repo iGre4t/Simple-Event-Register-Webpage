@@ -214,7 +214,7 @@ $count = count($participants);
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
             </nav>
             <div class="side-bottom">
-                <a class="side-nav__link logout" href="panel.php?logout=1">Ø®Ø±ÙˆØ¬</a>
+                <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
             </div>
         </aside>
         <main class="content">
@@ -229,22 +229,22 @@ $count = count($participants);
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 <div class="filters">
                     <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ù†Ø§Ù… ÛŒØ§ تلفن همراه">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="بر اساس تلفن ">
                         <select class="ctrl" name="sort">
                             <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
                             <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>بر اساس تاریخ اولین تا آخرین</option>
                             <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>بر اساس اسم</option>
-                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ تلفن همراه</option>
+                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>بر اساس تلفن همراه</option>
                         </select>
                         <button class="btn" style="width:auto; padding:10px 14px">فیلتر کردن</button>
                     </form>
                     <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
                         <select class="ctrl" name="tickets">
-                            <option value="">Ù‡Ù…Ù‡ تعداد سهم</option>
-                            <option value="1">1 Ø¨Ù„ÛŒØª</option>
-                            <option value="2">2 Ø¨Ù„ÛŒØª</option>
-                            <option value="3">3 Ø¨Ù„ÛŒØª</option>
-                            <option value="4">4 Ø¨Ù„ÛŒØª</option>
+                            <option value="">فیلتر تعداد سهم</option>
+                            <option value="1">1 سهم</option>
+                            <option value="2">2 سهم</option>
+                            <option value="3">3 سهم</option>
+                            <option value="4">4 سهم</option>
                         </select>
                         <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
                         <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
@@ -260,7 +260,7 @@ $count = count($participants);
                                 <th>تعداد سهم</th>
                                 <th>پرداخت شده</th>
                                 <th>کد رهگیری داخلی</th>
-                                <th>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„</th>
+                                <th>کد رهگیری زرین پال</th>
                                 <th>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª</th>
                             </tr>
                         </thead>
