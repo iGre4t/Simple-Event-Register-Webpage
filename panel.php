@@ -211,7 +211,7 @@ $count = count($participants);
         <aside class="sidebar">
             <h2 class="side-title">Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h2>
             <nav class="side-nav">
-                <a href="#participants" class="active">Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§</a>
+                <a href="#participants" class="active">لیست ثبت نامی ها</a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1">Ø®Ø±ÙˆØ¬</a>
@@ -220,27 +220,27 @@ $count = count($participants);
         <main class="content">
             <div class="card">
                 <div class="header-row">
-                    <h1 class="title" style="margin:0">Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§</h1>
+                    <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
                     <div class="count-box">
-                        <span>ØªØ¹Ø¯Ø§Ø¯ Ø´Ø±Ú©Øª Ú©Ù†Ù†Ø¯Ù‡ Ù‡Ø§:</span>
+                        <span>تعداد ثبت نامی ها</span>
                         <b><?php echo number_format($count); ?></b>
                     </div>
                 </div>
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 <div class="filters">
                     <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ù†Ø§Ù… ÛŒØ§ Ù…ÙˆØ¨Ø§ÛŒÙ„">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ù†Ø§Ù… ÛŒØ§ تلفن همراه">
                         <select class="ctrl" name="sort">
-                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>Ø¬Ø¯ÛŒØ¯ØªØ±ÛŒÙ†</option>
-                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>Ù‚Ø¯ÛŒÙ…ÛŒâ€ŒØªØ±ÛŒÙ†</option>
-                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ù†Ø§Ù…</option>
-                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ù…ÙˆØ¨Ø§ÛŒÙ„</option>
+                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
+                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>بر اساس تاریخ اولین تا آخرین</option>
+                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>بر اساس اسم</option>
+                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ تلفن همراه</option>
                         </select>
-                        <button class="btn" style="width:auto; padding:10px 14px">Ø§Ø¹Ù…Ø§Ù„</button>
+                        <button class="btn" style="width:auto; padding:10px 14px">فیلتر کردن</button>
                     </form>
                     <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
                         <select class="ctrl" name="tickets">
-                            <option value="">Ù‡Ù…Ù‡ ØªØ¹Ø¯Ø§Ø¯ Ø¨Ù„ÛŒØª</option>
+                            <option value="">Ù‡Ù…Ù‡ تعداد سهم</option>
                             <option value="1">1 Ø¨Ù„ÛŒØª</option>
                             <option value="2">2 Ø¨Ù„ÛŒØª</option>
                             <option value="3">3 Ø¨Ù„ÛŒØª</option>
@@ -248,18 +248,18 @@ $count = count($participants);
                         </select>
                         <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
                         <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
-                        <button class="btn" style="width:auto; padding:10px 14px">Ø®Ø±ÙˆØ¬ÛŒ CSV</button>
+                        <button class="btn" style="width:auto; padding:10px 14px">اکسپورت</button>
                     </form>
                 </div>
                 <div style="overflow:auto; margin-top:12px;">
                     <table>
                         <thead>
                             <tr>
-                                <th>Ù†Ø§Ù… Ùˆ Ù†Ø§Ù… Ø®Ø§Ù†ÙˆØ§Ø¯Ú¯ÛŒ</th>
-                                <th>Ù…ÙˆØ¨Ø§ÛŒÙ„</th>
-                                <th>ØªØ¹Ø¯Ø§Ø¯ Ø¨Ù„ÛŒØª</th>
-                                <th>Ù…Ø¨Ù„Øº Ú©Ù„ (Ø±ÛŒØ§Ù„)</th>
-                                <th>Ú©Ø¯ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ</th>
+                                <th>ثبت نامی</th>
+                                <th>تلفن همراه</th>
+                                <th>تعداد سهم</th>
+                                <th>پرداخت شده</th>
+                                <th>کد رهگیری داخلی</th>
                                 <th>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„</th>
                                 <th>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª</th>
                             </tr>
