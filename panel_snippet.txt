@@ -1,6 +1,6 @@
 ﻿    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</title>
+    <title>پنل ثبت نام مسابقات</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         :root {

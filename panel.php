@@ -99,7 +99,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª - ÙˆØ±ÙˆØ¯</title>
+        <title>پنل ثبت نام مسابقات - ÙˆØ±ÙˆØ¯</title>
         <link rel="stylesheet" href="css/style.css">
         <style>
             .login-card { max-width: 420px; }
@@ -109,7 +109,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
-                <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h1>
+                <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ پنل ثبت نام مسابقات</h1>
                 <p class="sub">Ù„Ø·ÙØ§ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ùˆ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯.</p>
                 <?php if ($loginError !== ''): ?><div class="error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
                 <label for="username">Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ</label>
@@ -167,7 +167,7 @@ $count = count($participants);
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</title>
+    <title>پنل ثبت نام مسابقات</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
@@ -209,7 +209,7 @@ $count = count($participants);
 <body>
     <div class="app">
         <aside class="sidebar">
-            <h2 class="side-title">Ù¾Ù†Ù„ Ù…Ø¯ÛŒØ±ÛŒØª</h2>
+            <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
             </nav>
@@ -261,7 +261,7 @@ $count = count($participants);
                                 <th>پرداخت شده</th>
                                 <th>کد رهگیری داخلی</th>
                                 <th>کد رهگیری زرین پال</th>
-                                <th>ØªØ§Ø±ÛŒØ® Ø«Ø¨Øª</th>
+                                <th>تاریخ ثبت نام</th>
                             </tr>
                         </thead>
                         <tbody id="rowsBody">
