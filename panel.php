@@ -469,7 +469,7 @@ $count = count($participants);
                     <div>
                         <button class="btn" type="submit">ذخیره تنظیمات</button>
                     </div>
-                    <label for="smsir_admin" style="font-weight:700;">????? ???? (???????? ??????)</label>
+                    <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
                     <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                 </form>
             </div>
