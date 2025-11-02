@@ -364,7 +364,10 @@ $count = count($participants);
         .side-nav a:hover { background: var(--sidebar-hover); }
         .side-nav a.active { background: #ffffff; color: var(--brand); }
         .side-nav a.active::before { content:''; position:absolute; inset-inline-start: -16px; top:8px; bottom:8px; width:3px; border-radius:2px; background: var(--sidebar-active); }
-        .side-bottom { margin-top:auto; }
+        .side-bottom { margin-top:auto; padding-top: 0; border-top: none; position: static; }
+        .side-bottom .logout { color:#94a3b8; font-weight:600; text-decoration:none; }
+        .side-bottom .logout:hover { color: var(--brand); background: transparent; }
+        .side-brand .brand-avatar { background:#f1f5f9; color: var(--brand); }
     </style>
 </head>
 <body>
