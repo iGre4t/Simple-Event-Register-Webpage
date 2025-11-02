@@ -1,5 +1,7 @@
 ﻿<?php
 session_start();
+// Ensure UTF-8 output to avoid mojibake
+header('Content-Type: text/html; charset=UTF-8');
 
 // Very simple credentials per request
 $ADMIN_USER = 'admin';
@@ -170,8 +172,8 @@ $count = count($participants);
     <title>پنل ثبت نام مسابقات</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        @font-face { font-family:'PeydaWebFaNum'; src:url('/fonts/PeydaWebFaNum-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
-        @font-face { font-family:'PeydaWebFaNum'; src:url('/fonts/PeydaWebFaNum-Bold.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
+        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
+        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Bold.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
         :root {
             --sidebar:#0f172a;
             --sidebar-text:#f1f5f9;
