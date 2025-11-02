@@ -349,6 +349,7 @@ $count = count($participants);
             <nav class="side-nav">
                 <a href="#notification-settings">تنظیمات اعلانیه</a>
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
+                <a href="#archive">لیست آرشیو</a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
@@ -487,6 +488,69 @@ $count = count($participants);
                     </table>
                 </div>
             </div>
+
+            <!-- Archive List -->
+            <div id="archive" class="card tab-section" style="margin-top:16px;">
+                <div class="header-row">
+                    <h1 class="title" style="margin:0">لیست آرشیو</h1>
+                    <div class="count-box">
+                        <span>تعداد موارد آرشیو</span>
+                        <b><?php
+                            $archCount = 0;
+                            $archFile = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'archiev.csv';
+                            if (is_file($archFile)) {
+                                if (($fh = fopen($archFile, 'r')) !== false) {
+                                    $lineNo = 0; while (($row = fgetcsv($fh)) !== false) { $lineNo++; if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tickets') { continue; } $archCount++; }
+                                    fclose($fh);
+                                }
+                            }
+                            echo fa_digits(number_format($archCount));
+                        ?></b>
+                    </div>
+                </div>
+                <div class="filters filters-archive">
+                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                        <input class="ctrl" type="search" name="q" value="" placeholder="جستجو">
+                        <select class="ctrl" name="sort">
+                            <option value="date_desc">بر اساس تاریخ جدید به قدیم</option>
+                            <option value="date_asc">بر اساس تاریخ قدیم به جدید</option>
+                            <option value="name">بر اساس نام</option>
+                            <option value="mobile">بر اساس شماره تماس</option>
+                        </select>
+                        <button class="btn" style="width:auto; padding:10px 14px">اعمال فیلتر</button>
+                    </form>
+                </div>
+                <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                    <span class="muted" id="bulkCountArchive">0 مورد انتخاب شده</span>
+                    <select class="ctrl" id="bulkActionArchive" style="max-width:200px;">
+                        <option value="">انتخاب عملیات</option>
+                        <option value="delete">حذف دائم</option>
+                    </select>
+                    <button type="button" class="btn btn-minimal" id="bulkApplyArchive" disabled>اجرا</button>
+                </div>
+                <div style="overflow:auto; margin-top:12px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:40px"></th>
+                                <th>نام کامل</th>
+                                <th>شماره تماس</th>
+                                <th>تعداد بلیت</th>
+                                <th>مبلغ کل</th>
+                                <th>کد رهگیری سفارش</th>
+                                <th>کد رهگیری زرین پال</th>
+                                <th>تاریخ ثبت یا پرداخت</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rowsBodyArchive">
+                            <tr>
+                                <td colspan="8" class="muted">در حال بارگذاری…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </main>
     </div>
     <script>
@@ -511,6 +575,63 @@ $count = count($participants);
           a.addEventListener('click', function(ev){ ev.preventDefault(); activate((this.getAttribute('href')||'').slice(1)); });
         });
         window.addEventListener('hashchange', function(){ var id=(location.hash||'').slice(1); if(sections[id]) activate(id); });
+      })();
+    </script>
+    <script>
+      // Archive tab logic (separate datasource and actions)
+      (function(){
+        var archSec = document.getElementById('archive');
+        if(!archSec) return;
+        function toFaDigits(str){ if(!str) return str; return String(str).replace(/\d/g, function(d){ return '۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d,10)); }); }
+        function convertTreeToFa(root){ if(!root) return; var w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null); var n, arr=[]; while((n=w.nextNode())){ var t=n.nodeValue; if(t && /\d/.test(t)) arr.push(n); } arr.forEach(function(x){ x.nodeValue = toFaDigits(x.nodeValue); }); }
+        var tbody = archSec.querySelector('#rowsBodyArchive');
+        var filtersWrap = archSec.querySelector('.filters-archive');
+        var form = filtersWrap ? filtersWrap.querySelector('form') : null;
+        var q = form ? form.querySelector('input[name="q"]') : null;
+        var sort = form ? form.querySelector('select[name="sort"]') : null;
+        var countBox = archSec.querySelector('.count-box b');
+
+        function params(){ var p = new URLSearchParams(); if(q && q.value.trim()!=='') p.set('q', q.value.trim()); if(sort && sort.value) p.set('sort', sort.value); return p; }
+        function ensureHeader(){ var thead = archSec.querySelector('table thead tr'); if(!thead) return; var hasTools = Array.from(thead.children).some(function(th){ var s=(th.textContent||'').trim(); return s==='ابزار' || s==='Operations'; }); if(!hasTools){ var th=document.createElement('th'); th.textContent='ابزار'; thead.appendChild(th); } }
+        function decorateDelete(){ var del = archSec.querySelectorAll('button[data-delete]'); del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>حذف</span>'; }); try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){} }
+
+        async function refreshArchive(){
+          var res = await fetch('panel_archive_data.php?' + params().toString(), {cache:'no-store'});
+          var j = await res.json();
+          if(j && j.ok){ tbody.innerHTML = j.rows_html; convertTreeToFa(tbody); ensureHeader(); decorateDelete(); if(countBox) countBox.textContent = toFaDigits(j.count); updateBulkStateArchive(); }
+        }
+        window.refreshArchive = refreshArchive;
+        var t; if(q){ q.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(refreshArchive, 200); }); }
+        if(sort){ sort.addEventListener('change', refreshArchive); }
+
+        // Capture-phase delete handler for archive to stop base handler
+        document.addEventListener('click', async function(e){
+          var btn = e.target.closest('#archive button[data-delete]');
+          if(!btn) return;
+          e.preventDefault(); e.stopPropagation();
+          var tag = btn.getAttribute('data-delete');
+          if(!confirm('این مورد از آرشیو حذف شود؟')) return;
+          var fd = new FormData(); fd.set('action','delete'); fd.set('tag', tag);
+          var r = await fetch('panel_archive_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok) refreshArchive(); else alert('خطا در حذف');
+        }, true);
+
+        function selectedTagsArchive(){ return Array.from(archSec.querySelectorAll('#rowsBodyArchive .row-check-arch:checked')).map(function(cb){ return cb.value; }); }
+        function updateBulkStateArchive(){ var tags = selectedTagsArchive(); var c = document.getElementById('bulkCountArchive'); var btn = document.getElementById('bulkApplyArchive'); if (c) c.textContent = (tags.length||0) + ' مورد انتخاب شده'; var sel = document.getElementById('bulkActionArchive'); if (btn) btn.disabled = tags.length===0 || !(sel && sel.value); }
+        document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('row-check-arch')) updateBulkStateArchive(); });
+        var bulkActionSelA = document.getElementById('bulkActionArchive'); if (bulkActionSelA) bulkActionSelA.addEventListener('change', updateBulkStateArchive);
+        var bulkBtnA = document.getElementById('bulkApplyArchive');
+        if (bulkBtnA) bulkBtnA.addEventListener('click', async function(){
+          var actSel = document.getElementById('bulkActionArchive'); var doWhat = actSel ? actSel.value : '';
+          var tags = selectedTagsArchive(); if (!doWhat || tags.length===0) return;
+          if (doWhat==='delete' && !confirm('آیا از حذف موارد انتخاب‌شده مطمئن هستید؟')) return;
+          var fd = new FormData(); fd.set('action','bulk'); fd.set('do', doWhat); tags.forEach(function(t){ fd.append('tags[]', t); });
+          var r = await fetch('panel_archive_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok){ refreshArchive(); } else { alert('خطا در اجرای عملیات'); }
+        });
+
+        // Initial load
+        try { ensureHeader(); refreshArchive(); } catch(e){}
       })();
     </script>
     <script>
