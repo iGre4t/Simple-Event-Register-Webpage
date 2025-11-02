@@ -106,8 +106,13 @@ if (!($_SESSION['is_admin'] ?? false)) {
         <style>
             .login-card { max-width: 420px; }
             .error { color: #b91c1c; background:#fee2e2; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; margin-bottom:10px; }
-        </style>
-    </head>
+</style>
+    <!-- Persian datepicker assets -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+</head>
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
@@ -361,8 +366,31 @@ $count = count($participants);
         var q = formFilter.querySelector('input[name="q"]');
         var sort = formFilter.querySelector('select[name="sort"]');
         var tickets = formExport.querySelector('select[name="tickets"]');
+        // Enhance date fields: add Shamsi inputs and hidden Gregorian values
+        (function enhanceShamsi(){
+          if(!formExport) return;
+          var oldFrom = formExport.querySelector('input[type="date"][name="from"]');
+          var oldTo   = formExport.querySelector('input[type="date"][name="to"]');
+          if(!oldFrom || !oldTo) return; // already enhanced
+          var hFrom = document.createElement('input'); hFrom.type='hidden'; hFrom.name='from';
+          var hTo   = document.createElement('input'); hTo.type='hidden';   hTo.name='to';
+          var lFrom = document.createElement('label'); lFrom.htmlFor='from_sh'; lFrom.textContent='تاریخ شروع'; lFrom.style.fontWeight='700';
+          var vFrom = document.createElement('input'); vFrom.type='text'; vFrom.id='from_sh'; vFrom.name='from_sh'; vFrom.className='ctrl shamsi'; vFrom.placeholder='مثال: ۱۴۰۳/۰۸/۱۱'; vFrom.autocomplete='off'; vFrom.setAttribute('inputmode','numeric');
+          var lTo   = document.createElement('label'); lTo.htmlFor='to_sh';   lTo.textContent='تاریخ پایان'; lTo.style.fontWeight='700';
+          var vTo   = document.createElement('input'); vTo.type='text'; vTo.id='to_sh';   vTo.name='to_sh';   vTo.className='ctrl shamsi'; vTo.placeholder='مثال: ۱۴۰۳/۰۸/۱۲'; vTo.autocomplete='off'; vTo.setAttribute('inputmode','numeric');
+          formExport.insertBefore(lFrom, oldFrom);
+          formExport.insertBefore(vFrom, oldFrom);
+          formExport.insertBefore(hFrom, oldFrom);
+          formExport.insertBefore(lTo, oldTo);
+          formExport.insertBefore(vTo, oldTo);
+          formExport.insertBefore(hTo, oldTo);
+          oldFrom.name = 'from_old'; oldFrom.style.display='none';
+          oldTo.name   = 'to_old';   oldTo.style.display='none';
+        })();
         var from = formExport.querySelector('input[name="from"]');
         var to = formExport.querySelector('input[name="to"]');
+        var fromSh = formExport.querySelector('input[name="from_sh"]');
+        var toSh = formExport.querySelector('input[name="to_sh"]');
         var countBox = document.querySelector('.count-box b');
 
         function params(){
@@ -386,6 +414,36 @@ $count = count($participants);
         if(tickets){ tickets.addEventListener('change', refresh); }
         if(from){ from.addEventListener('change', refresh); }
         if(to){ to.addEventListener('change', refresh); }
+        // Initialize Persian datepickers and keep hidden Gregorian in sync
+        try {
+          if (window.jQuery && window.persianDate && jQuery.fn.persianDatepicker) {
+            function setHiddenFromUnix(targetHidden, unix){
+              try {
+                var g = new persianDate(unix).toCalendar('gregorian').toLocale('en').format('YYYY-MM-DD');
+                targetHidden.value = g;
+                targetHidden.dispatchEvent(new Event('change', {bubbles:true}));
+              } catch(e){}
+            }
+            if (fromSh) {
+              jQuery(fromSh).persianDatepicker({
+                initialValue: false,
+                format: 'YYYY/MM/DD',
+                autoClose: true,
+                calendar: { persian: { locale: 'fa' } },
+                onSelect: function(unix){ setHiddenFromUnix(from, unix); }
+              });
+            }
+            if (toSh) {
+              jQuery(toSh).persianDatepicker({
+                initialValue: false,
+                format: 'YYYY/MM/DD',
+                autoClose: true,
+                calendar: { persian: { locale: 'fa' } },
+                onSelect: function(unix){ setHiddenFromUnix(to, unix); }
+              });
+            }
+          }
+        } catch(e){}
 
         // Add export Excel button
         var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn'; xBtn.style.cssText='width:auto; padding:10px 14px; background:#1d4ed8; box-shadow:none;'; xBtn.textContent='خروجی Excel';
