@@ -385,19 +385,9 @@ $count = count($participants);
           var vTo   = document.createElement('input'); vTo.type='text'; vTo.id='to_sh';   vTo.name='to_sh';   vTo.className='ctrl shamsi'; vTo.placeholder='مثال: ۱۴۰۳/۰۸/۱۲'; vTo.autocomplete='off'; vTo.setAttribute('inputmode','numeric');
           formExport.insertBefore(lFrom, oldFrom);
           formExport.insertBefore(vFrom, oldFrom);
-          // Add calendar button for From
-          var bFrom = document.createElement('button');
-          bFrom.type='button'; bFrom.className='btn date-btn'; bFrom.title='Calendar'; bFrom.setAttribute('aria-label','Open calendar');
-          bFrom.textContent='📅'; bFrom.style.cssText='width:auto;padding:8px 10px;line-height:1;';
-          formExport.insertBefore(bFrom, oldFrom);
           formExport.insertBefore(hFrom, oldFrom);
           formExport.insertBefore(lTo, oldTo);
           formExport.insertBefore(vTo, oldTo);
-          // Add calendar button for To
-          var bTo = document.createElement('button');
-          bTo.type='button'; bTo.className='btn date-btn'; bTo.title='Calendar'; bTo.setAttribute('aria-label','Open calendar');
-          bTo.textContent='📅'; bTo.style.cssText='width:auto;padding:8px 10px;line-height:1;';
-          formExport.insertBefore(bTo, oldTo);
           formExport.insertBefore(hTo, oldTo);
           oldFrom.name = 'from_old'; oldFrom.style.display='none';
           oldTo.name   = 'to_old';   oldTo.style.display='none';
@@ -408,10 +398,6 @@ $count = count($participants);
         var toSh = formExport.querySelector('input[name="to_sh"]');
         var fromOld = formExport.querySelector('input[name="from_old"]');
         var toOld   = formExport.querySelector('input[name="to_old"]');
-        var bFromEl = formExport.querySelector('button.date-btn[aria-label="Open calendar"]');
-        // Because two buttons share same label, find second by proximity to to_sh
-        var buttons = formExport.querySelectorAll('button.date-btn');
-        var bToEl = buttons.length>1 ? buttons[1] : null;
         // Open calendar on click/focus for Shamsi fields
         function wireOpenCalendar(input){
           if(!input) return;
@@ -422,27 +408,23 @@ $count = count($participants);
         }
         wireOpenCalendar(fromSh);
         wireOpenCalendar(toSh);
-        // Button click handlers to open calendars
-        function openCalendarFor(inputText, inputNative){
-          try {
-            if (inputText) { inputText.focus(); }
-            if (inputText && window.jQuery) {
-              try {
-                var $t = jQuery(inputText);
-                // Try plugin's API instance if available
-                var api = $t.data('datepicker');
-                if (api && typeof api.show === 'function') { api.show(); return; }
-                $t.trigger('focus');
-                $t.trigger('click');
-                return;
-              } catch(e){}
+        // When user clears Shamsi fields manually, clear hidden Gregorian values and refresh
+        function syncClearOnEmpty(shInput, hiddenInput){
+          if(!shInput || !hiddenInput) return;
+          function check(){
+            var v = (shInput.value || '').trim();
+            if(v === ''){
+              hiddenInput.value = '';
+              hiddenInput.dispatchEvent(new Event('change', {bubbles:true}));
+              try { refresh(); } catch(e){}
             }
-            if (inputNative && typeof inputNative.showPicker === 'function') { inputNative.showPicker(); return; }
-            if (inputNative) { inputNative.focus(); }
-          } catch(e){}
+          }
+          shInput.addEventListener('input', check);
+          shInput.addEventListener('change', check);
+          shInput.addEventListener('keyup', function(e){ if(e.key === 'Backspace' || e.key === 'Delete') check(); });
         }
-        if (bFromEl) bFromEl.addEventListener('click', function(){ openCalendarFor(fromSh, fromOld); });
-        if (bToEl)   bToEl.addEventListener('click',   function(){ openCalendarFor(toSh, toOld); });
+        syncClearOnEmpty(fromSh, from);
+        syncClearOnEmpty(toSh, to);
         // For native date inputs, attempt to open the picker on focus/click
         function wireNativeDatePicker(input){
           if(!input) return;
