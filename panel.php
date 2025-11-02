@@ -218,6 +218,8 @@ $count = count($participants);
         .csv-hint { font-size:12px; color:#64748b; margin-top:8px; }
         .filters { display:flex; gap:8px; align-items:center; flex-wrap: wrap; margin-top:12px; }
         .filters .ctrl { width:auto; min-width:200px; }
+        /* Hide the redundant filter button in the first form */
+        .filters form:not([action]) button.btn { display: none; }
         .copy { cursor:pointer; user-select:none; }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
     </style>
@@ -247,7 +249,7 @@ $count = count($participants);
                 -->
                 <div class="filters">
                     <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="بر اساس تلفن ">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو ">
                         <select class="ctrl" name="sort">
                             <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
                             <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>بر اساس تاریخ اولین تا آخرین</option>
