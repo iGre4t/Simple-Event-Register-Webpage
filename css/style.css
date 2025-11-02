@@ -47,6 +47,9 @@ html, body {
   text-align: right;
 }
 
+/* Ensure form controls inherit app font across browsers */
+button, input, select, textarea { font-family: inherit; }
+
 a { color: var(--brand); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -95,6 +98,7 @@ label {
   border-radius: 12px;
   background: #fff;
   font-size: 16px;
+  font-family: inherit;
   outline: none;
   direction: rtl;
   transition: border-color .2s, box-shadow .2s;
@@ -159,6 +163,7 @@ label {
   border-radius: 12px;
   font-size: 16px;
   font-weight: 800;
+  font-family: inherit;
   cursor: pointer;
   transition: .2s;
 }
