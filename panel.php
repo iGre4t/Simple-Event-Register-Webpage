@@ -112,6 +112,8 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <!-- Minimal icon set -->
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
     <body>
         <div class="wrap">
@@ -460,11 +462,24 @@ $count = count($participants);
           return p;
         }
         function validDates(){ if(!from.value || !to.value) return true; return new Date(from.value) <= new Date(to.value); }
+        function decorateArchiveButtons(){
+          var btns = document.querySelectorAll('button[data-archive]');
+          btns.forEach(function(b){
+            b.classList.add('btn-minimal','btn-red','btn-sm');
+            b.innerHTML = '<i data-feather="archive"></i><span>آرشیو</span>';
+          });
+          try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
+        }
         async function refresh(){
           if(!validDates()){ tbody.innerHTML = '<tr><td colspan="8" class="muted">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</td></tr>'; return; }
           var res = await fetch('panel_data.php?' + params().toString(), {cache:'no-store'});
           var j = await res.json();
-          if(j && j.ok){ tbody.innerHTML = j.rows_html; if(countBox) countBox.textContent = j.count; ensureHeader(); }
+          if(j && j.ok){
+            tbody.innerHTML = j.rows_html;
+            if(countBox) countBox.textContent = j.count;
+            ensureHeader();
+            decorateArchiveButtons();
+          }
         }
         var t; if(q){ q.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(refresh, 200); }); }
         if(sort){ sort.addEventListener('change', refresh); }
@@ -520,10 +535,18 @@ $count = count($participants);
         } catch(e){}
 
         // Add export Excel button
-        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn btn-minimal btn-blue'; xBtn.style.cssText=''; xBtn.textContent='خروجی Excel';
+        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn btn-minimal'; xBtn.style.cssText=''; xBtn.textContent='خروجی Excel';
         formExport.appendChild(xBtn);
         function openExport(url){ window.location.href = url + '?' + params().toString(); }
         xBtn.addEventListener('click', function(){ openExport('export_excel.php'); });
+        // Enhance export buttons with icons and unify style
+        try { if (xBtn) { xBtn.innerHTML = '<i data-feather="download"></i><span>خروجی Excel</span>'; } } catch(e){}
+        var csvBtn = formExport.querySelector('button[type="submit"], button.btn');
+        if (csvBtn) {
+          csvBtn.classList.add('btn-minimal');
+          csvBtn.innerHTML = '<i data-feather="download"></i><span>خروجی CSV</span>';
+        }
+        try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
 
         // Archive action
         document.addEventListener('click', async function(e){
