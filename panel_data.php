@@ -8,7 +8,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     exit;
 }
 
-// Normalize a mobile number to 11‑digit local format (e.g., 09000000000)
+// Normalize a mobile number to 11-digit local format (e.g., 09000000000)
 function mobile_local(string $raw): string {
     $d = preg_replace('/\D+/', '', $raw);
     if ($d === null) { $d = ''; }
@@ -21,7 +21,7 @@ function mobile_local(string $raw): string {
     return $d;
 }
 
-// Human‑readable display: +98 9xx xxx xxxx
+// Human-readable display: +98 9xx xxx xxxx
 function mobile_display(string $raw): string {
     $local = mobile_local($raw);
     if (strlen($local) === 11 && $local[0] === '0') {
@@ -31,7 +31,7 @@ function mobile_display(string $raw): string {
     return (string)$raw;
 }
 
-// Shared reader copied from panel with enhancements
+// Reader for participants across 1..4 ticket CSV files
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
     $all = [];
@@ -43,7 +43,6 @@ function read_participants(): array {
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
             if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
-                // Normalize header cells and build alias-aware index
                 $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
                 $idxAlias = [];
                 foreach ($header as $i => $h) {
@@ -63,17 +62,14 @@ function read_participants(): array {
                     'mobile'    => (string)($row[$idx['mobile'] ?? -1] ?? ''),
                     'total'     => (int)($row[$idx['total'] ?? -1] ?? 0),
                     'ref_id'    => (string)($row[$idx['ref_id'] ?? -1] ?? ''),
-                    // Support partially-upgraded headers: fallback by column count
                     'created_at'=> (string)($row[$idx['created_at'] ?? -1] ?? ''),
                     'paid_at'   => (string)($row[$idx['paid_at'] ?? -1] ?? ''),
                 ];
                 if ($rec['ref_id'] === '' && count($row) >= 5) { $rec['ref_id'] = (string)$row[4]; }
                 if ($rec['created_at'] === '' && count($row) >= 6) { $rec['created_at'] = (string)$row[5]; }
                 if ($rec['paid_at'] === '' && count($row) >= 7)    { $rec['paid_at']    = (string)$row[6]; }
-                // Authority may not be in old header
                 $rec['authority'] = (string)($row[$idx['authority'] ?? -1] ?? '');
                 if ($rec['authority'] === '' && count($row) >= 8)  { $rec['authority']  = (string)$row[7]; }
-                // If ref_id is still empty but we have authority, try completed marker
                 if ($rec['ref_id'] === '' && $rec['authority'] !== '') {
                     $completed = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'completed' . DIRECTORY_SEPARATOR . $rec['authority'] . '.json';
                     if (is_file($completed)) {
@@ -96,19 +92,21 @@ function read_participants(): array {
     return $all;
 }
 
-// Archive action
+// Mutations
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $action = $_POST['action'] ?? '';
+    // Single archive
     if ($action === 'archive') {
         $tag = trim((string)($_POST['tag'] ?? ''));
         if ($tag === '') { echo json_encode(['ok'=>false,'error'=>'bad_tag']); exit; }
+
         $rows = read_participants();
         $found = null; $tickets = null; $srcFile = null;
         foreach ($rows as $r) { if ($r['tag'] === $tag) { $found = $r; $tickets = (int)$r['tickets']; break; } }
         if (!$found) { echo json_encode(['ok'=>false,'error'=>'not_found']); exit; }
         $storage = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
         $srcFile = $storage . DIRECTORY_SEPARATOR . $tickets . ' tickets.csv';
-        // Re-write source file without the archived row
+        // Rewrite source without the row
         $all = [];
         if (($fh = fopen($srcFile, 'r')) !== false) {
             $header = fgetcsv($fh);
@@ -119,13 +117,92 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
         $wf = fopen($srcFile, 'w'); foreach ($all as $r) { fputcsv($wf, $r); } fclose($wf);
 
-        // Append to archiev.csv
+        // Append to archive file
         $arch = $storage . DIRECTORY_SEPARATOR . 'archiev.csv';
         $afh = fopen($arch, 'a+');
         $stats = fstat($afh); if (($stats['size'] ?? 0) === 0) { fputcsv($afh, ['tickets','tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']); }
         fputcsv($afh, [ (int)$found['tickets'], $found['tag'],$found['fullname'],$found['mobile'],(int)$found['total'], (string)($found['ref_id']??''),(string)($found['created_at']??''),(string)($found['paid_at']??''), '' ]);
         fclose($afh);
         echo json_encode(['ok'=>true]);
+        exit;
+    }
+
+    // Single hard delete (no archive)
+    if ($action === 'delete') {
+        $tag = trim((string)($_POST['tag'] ?? ''));
+        if ($tag === '') { echo json_encode(['ok'=>false,'error'=>'bad_tag']); exit; }
+        $rows = read_participants();
+        $found = null; $tickets = null;
+        foreach ($rows as $r) { if ($r['tag'] === $tag) { $found = $r; $tickets = (int)$r['tickets']; break; } }
+        if (!$found) { echo json_encode(['ok'=>false,'error'=>'not_found']); exit; }
+        $storage = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+        $srcFile = $storage . DIRECTORY_SEPARATOR . $tickets . ' tickets.csv';
+        $all = [];
+        if (($fh = fopen($srcFile, 'r')) !== false) {
+            $header = fgetcsv($fh);
+            $hasHeader = is_array($header) && strtolower((string)$header[0]) === 'tag';
+            if ($hasHeader) { $all[] = $header; }
+            while (($row = fgetcsv($fh)) !== false) { if (($row[0] ?? '') !== $tag) { $all[] = $row; } }
+            fclose($fh);
+        }
+        $wf = fopen($srcFile, 'w'); foreach ($all as $r) { fputcsv($wf, $r); } fclose($wf);
+        echo json_encode(['ok'=>true]);
+        exit;
+    }
+
+    // Bulk operations: archive or delete
+    if ($action === 'bulk') {
+        $do = $_POST['do'] ?? '';
+        $tags = [];
+        if (isset($_POST['tags']) && is_array($_POST['tags'])) { $tags = array_map('strval', $_POST['tags']); }
+        elseif (isset($_POST['tags'])) {
+            $raw = (string)$_POST['tags'];
+            $tags = array_filter(array_map('trim', preg_split('/[\s,]+/', $raw)));
+        }
+        $tags = array_values(array_unique(array_filter($tags, fn($t)=>$t!=='')));
+        if (empty($tags)) { echo json_encode(['ok'=>false,'error'=>'no_tags']); exit; }
+
+        $rows = read_participants();
+        $byTag = [];
+        foreach ($rows as $r) { $byTag[$r['tag']] = $r; }
+        $storage = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+        $changedFiles = [];
+        $archData = [];
+        foreach ($tags as $tag) {
+            if (!isset($byTag[$tag])) { continue; }
+            $rec = $byTag[$tag]; $tickets=(int)$rec['tickets'];
+            $srcFile = $storage . DIRECTORY_SEPARATOR . $tickets . ' tickets.csv';
+            if (!isset($changedFiles[$srcFile])) {
+                $changedFiles[$srcFile] = ['header'=>null,'rows'=>[]];
+                if (($fh=fopen($srcFile,'r'))!==false) {
+                    $header = fgetcsv($fh); $hasHeader = is_array($header) && strtolower((string)$header[0])==='tag';
+                    if ($hasHeader) { $changedFiles[$srcFile]['header']=$header; }
+                    while(($row=fgetcsv($fh))!==false){ $changedFiles[$srcFile]['rows'][]=$row; }
+                    fclose($fh);
+                }
+            }
+            // Remove this tag from the cached rows
+            $changedFiles[$srcFile]['rows'] = array_values(array_filter($changedFiles[$srcFile]['rows'], function($rr) use($tag){ return ($rr[0]??'') !== $tag; }));
+            if ($do === 'archive') {
+                $archData[] = [ (int)$rec['tickets'], $rec['tag'],$rec['fullname'],$rec['mobile'],(int)$rec['total'], (string)($rec['ref_id']??''),(string)($rec['created_at']??''),(string)($rec['paid_at']??''), '' ];
+            }
+        }
+        // Write back changed CSV files
+        foreach ($changedFiles as $file => $data) {
+            $wf = fopen($file, 'w');
+            if ($data['header']) { fputcsv($wf, $data['header']); }
+            foreach ($data['rows'] as $r) { fputcsv($wf, $r); }
+            fclose($wf);
+        }
+        // Append archived rows
+        if ($do === 'archive' && !empty($archData)) {
+            $arch = $storage . DIRECTORY_SEPARATOR . 'archiev.csv';
+            $afh = fopen($arch, 'a+');
+            $stats = fstat($afh); if (($stats['size'] ?? 0) === 0) { fputcsv($afh, ['tickets','tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']); }
+            foreach ($archData as $r) { fputcsv($afh, $r); }
+            fclose($afh);
+        }
+        echo json_encode(['ok'=>true, 'processed'=>count($tags)]);
         exit;
     }
 }
@@ -156,7 +233,7 @@ if ($from !== '' || $to !== '') {
     $fromTs = $from !== '' ? strtotime($from.' 00:00:00') : null;
     $toTs = $to !== '' ? strtotime($to.' 23:59:59') : null;
     if ($fromTs && $toTs && $fromTs > $toTs) {
-        echo json_encode(['ok'=>true,'count'=>0,'rows_html'=>'<tr><td colspan="8" class="muted">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</td></tr>']);
+        echo json_encode(['ok'=>true,'count'=>0,'rows_html'=>'<tr><td colspan="9" class="muted">بازه تاریخ نامعتبر است؛ ابتدا باید از تاریخ کمتر باشد.</td></tr>']);
         exit;
     }
     $participants = array_values(array_filter($participants, function($r) use ($fromTs,$toTs){
@@ -174,13 +251,15 @@ usort($participants, function($a,$b) use($sort){
     }
 });
 
-// Build rows HTML
+// Build rows HTML (includes selection + tools)
 ob_start();
 if (empty($participants)) {
-    echo '<tr><td colspan="8" class="muted">موردی برای نمایش یافت نشد.</td></tr>';
+    echo '<tr><td colspan="9" class="muted">رکوردی پیدا نشد.</td></tr>';
 } else {
     foreach ($participants as $row) {
-        echo '<tr>'; 
+        echo '<tr>';
+        // selection checkbox
+        echo '<td><input type="checkbox" class="row-check" value="' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '" /></td>';
         echo '<td>' . htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8') . '</td>';
         $mDisp = mobile_display((string)($row['mobile'] ?? ''));
         $mCopy = mobile_local((string)($row['mobile'] ?? ''));
@@ -196,7 +275,12 @@ if (empty($participants)) {
         } elseif (!empty($row['paid_at'])) {
             echo '<td>' . htmlspecialchars(date('Y-m-d H:i', strtotime($row['paid_at'])), ENT_QUOTES, 'UTF-8') . '</td>';
         } else { echo '<td><span class="muted">-</span></td>'; }
-        echo '<td><button class="btn" style="width:auto; padding:6px 10px" data-archive="' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '">آرشیو</button></td>';
+        // tools: archive + delete
+        $tag = htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8');
+        echo '<td>'
+           . '<button class="btn" style="width:auto; padding:6px 10px" data-archive="' . $tag . '">آرشیو</button> '
+           . '<button class="btn" style="width:auto; padding:6px 10px" data-delete="' . $tag . '">حذف</button>'
+           . '</td>';
         echo '</tr>';
     }
 }
@@ -204,3 +288,4 @@ $rowsHtml = ob_get_clean();
 
 echo json_encode(['ok'=>true,'count'=>count($participants),'rows_html'=>$rowsHtml], JSON_UNESCAPED_UNICODE);
 exit;
+

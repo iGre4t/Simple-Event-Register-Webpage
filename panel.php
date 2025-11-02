@@ -348,10 +348,20 @@ $count = count($participants);
                         <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
                     </form>
                 </div>
+                <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                    <span class="muted" id="bulkCount">0 مورد انتخاب شده</span>
+                    <select class="ctrl" id="bulkAction" style="max-width:200px;">
+                        <option value="">اقدام گروهی</option>
+                        <option value="archive">آرشیو</option>
+                        <option value="delete">حذف کامل</option>
+                    </select>
+                    <button type="button" class="btn btn-minimal" id="bulkApply" disabled>اعمال</button>
+                </div>
                 <div style="overflow:auto; margin-top:12px;">
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:40px"></th>
                                 <th>ثبت نامی</th>
                                 <th>تلفن همراه</th>
                                 <th>تعداد سهم</th>
@@ -572,6 +582,9 @@ $count = count($participants);
             if(countBox) countBox.textContent = toFaDigits(j.count);
             ensureHeader();
             decorateArchiveButtons();
+            ensureHeaderExtras();
+            decorateActionExtras();
+            updateBulkState();
           }
         }
         var t; if(q){ q.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(refresh, 200); }); }
@@ -650,6 +663,63 @@ $count = count($participants);
           var fd = new FormData(); fd.set('action','archive'); fd.set('tag', tag);
           var r = await fetch('panel_data.php', {method:'POST', body: fd});
           var j = await r.json(); if(j && j.ok) refresh(); else alert('خطا در آرشیو');
+        });
+
+        // Delete (single)
+        document.addEventListener('click', async function(e){
+          var btn = e.target.closest('button[data-delete]');
+          if(!btn) return;
+          var tag = btn.getAttribute('data-delete');
+          if(!confirm('حذف کامل این مورد انجام شود؟')) return;
+          var fd = new FormData(); fd.set('action','delete'); fd.set('tag', tag);
+          var r = await fetch('panel_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok) refresh(); else alert('خطا در حذف');
+        });
+
+        function ensureHeaderExtras(){
+          var thead = document.querySelector('table thead tr');
+          if(!thead) return;
+          if (thead.children.length && !thead.children[0].querySelector('input[type="checkbox"]')){
+            thead.children[0].innerHTML = '<input type="checkbox" id="checkAll" />';
+          }
+          var all = document.getElementById('checkAll');
+          if (all && !all._bound){
+            all.addEventListener('change', function(){
+              var cbs = document.querySelectorAll('#rowsBody .row-check');
+              cbs.forEach(function(cb){ cb.checked = all.checked; });
+              updateBulkState();
+            });
+            all._bound = true;
+          }
+        }
+
+        function decorateActionExtras(){
+          var del = document.querySelectorAll('button[data-delete]');
+          del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>حذف</span>'; });
+          try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
+        }
+
+        function selectedTags(){
+          return Array.from(document.querySelectorAll('#rowsBody .row-check:checked')).map(function(cb){ return cb.value; });
+        }
+        function updateBulkState(){
+          var tags = selectedTags();
+          var c = document.getElementById('bulkCount'); var btn = document.getElementById('bulkApply');
+          if (c) c.textContent = (tags.length||0) + ' مورد انتخاب شده';
+          var sel = document.getElementById('bulkAction');
+          if (btn) btn.disabled = tags.length===0 || !(sel && sel.value);
+        }
+        document.addEventListener('change', function(e){ if(e.target && e.target.classList && e.target.classList.contains('row-check')) updateBulkState(); });
+        var bulkActionSel = document.getElementById('bulkAction'); if (bulkActionSel) bulkActionSel.addEventListener('change', updateBulkState);
+        var bulkBtn = document.getElementById('bulkApply');
+        if (bulkBtn) bulkBtn.addEventListener('click', async function(){
+          var actSel = document.getElementById('bulkAction'); var doWhat = actSel ? actSel.value : '';
+          var tags = selectedTags(); if (!doWhat || tags.length===0) return;
+          if (doWhat==='delete' && !confirm('حذف کامل موارد انتخاب‌شده انجام شود؟')) return;
+          if (doWhat==='archive' && !confirm('موارد انتخاب‌شده آرشیو شوند؟')) return;
+          var fd = new FormData(); fd.set('action','bulk'); fd.set('do', doWhat); tags.forEach(function(t){ fd.append('tags[]', t); });
+          var r = await fetch('panel_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok){ refresh(); } else { alert('خطا در اجرای عملیات گروهی'); }
         });
 
         function ensureHeader(){
