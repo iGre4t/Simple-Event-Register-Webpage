@@ -32,7 +32,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username']
         header('Location: panel.php');
         exit;
     } else {
-        $loginError = 'نام کاربری ÛŒØ§ گذرواژه Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª';
+        $loginError = 'نام کاربری یا گذرواژه اشتباه است';
     }
 }
 
