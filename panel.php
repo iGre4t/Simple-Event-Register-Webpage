@@ -342,16 +342,16 @@ $count = count($participants);
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
         :root {
-            --sidebar:#2563eb; /* fallback */
-            --sidebar-grad:#3b82f6; /* blue-500 */
-            --sidebar-grad-2:#2563eb; /* blue-600 */
-            --sidebar-text:#f1f5f9;
-            --sidebar-muted:#e2e8f0;
-            --sidebar-hover:rgba(255,255,255,0.12);
-            --sidebar-active:#0ea5e9;
+            --sidebar:#ffffff; /* fallback */
+            --sidebar-grad:#ffffff; /* near white */
+            --sidebar-grad-2:#f8fafc; /* subtle contrast */
+            --sidebar-text:#0f172a; /* slate-900 */
+            --sidebar-muted:#64748b; /* slate-500 */
+            --sidebar-hover:#f1f5f9; /* light hover */
+            --sidebar-active: var(--brand); /* project red on active */
         }
         .app { grid-template-columns: 280px 1fr; }
-        .sidebar { background: linear-gradient(180deg, var(--sidebar-grad), var(--sidebar-grad-2)); padding:20px 16px; border-left:1px solid rgba(255,255,255,0.04); }
+        .sidebar { background: linear-gradient(180deg, var(--sidebar-grad), var(--sidebar-grad-2)); padding:20px 16px; border-left:1px solid #e5e7eb; color: var(--sidebar-text); }
         /* Hide legacy sidebar when modern one is present */
         .app > aside.sidebar:not(.sidebar--modern){ display:none !important; }
         .side-brand { display:flex; align-items:center; gap:12px; margin-bottom: 20px; }
@@ -362,7 +362,7 @@ $count = count($participants);
         .side-nav { display:flex; flex-direction:column; gap:6px; }
         .side-nav a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--sidebar-text); text-decoration:none; font-weight:700; position:relative; transition: background .15s ease, color .15s ease; }
         .side-nav a:hover { background: var(--sidebar-hover); }
-        .side-nav a.active { background: var(--sidebar-hover); color:#fff; }
+        .side-nav a.active { background: #ffffff; color: var(--brand); }
         .side-nav a.active::before { content:''; position:absolute; inset-inline-start: -16px; top:8px; bottom:8px; width:3px; border-radius:2px; background: var(--sidebar-active); }
         .side-bottom { margin-top:auto; }
     </style>
