@@ -32,7 +32,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username']
         header('Location: panel.php');
         exit;
     } else {
-        $loginError = 'Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒØ§ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª';
+        $loginError = 'نام کاربری ÛŒØ§ گذرواژه Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª';
     }
 }
 
@@ -166,7 +166,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>پنل ثبت نام مسابقات - ÙˆØ±ÙˆØ¯</title>
+        <title>پنل ثبت نام مسابقات - ورود به پنل</title>
         <link rel="stylesheet" href="css/style.css">
         <style>
             .login-card { max-width: 420px; }
@@ -183,15 +183,15 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
-                <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ پنل ثبت نام مسابقات</h1>
-                <p class="sub">Ù„Ø·ÙØ§ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ùˆ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯.</p>
+                <h1 class="title">ورود به پنل ثبت نام مسابقات</h1>
+                <p class="sub">برای ورود اطلاعات خود را وارد کنید</p>
                 <?php if ($loginError !== ''): ?><div class="error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                <label for="username">Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ</label>
-                <input class="ctrl" type="text" id="username" name="username" required placeholder="admin" autocomplete="username" />
-                <label for="password" style="margin-top:12px">Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±</label>
-                <input class="ctrl" type="password" id="password" name="password" required placeholder="â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" />
-                <button class="btn" type="submit" style="margin-top:16px">ÙˆØ±ÙˆØ¯</button>
-                <footer>Ù¾Ù†Ù„ Ø³Ø§Ø¯Ù‡ Ù…Ø¯ÛŒØ±ÛŒØª Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒÙ‡Ø§</footer>
+                <label for="username">نام کاربری</label>
+                <input class="ctrl" type="text" id="username" name="username" required placeholder="نام خود را وارد کنید" autocomplete="username" />
+                <label for="password" style="margin-top:12px">گذرواژه</label>
+                <input class="ctrl" type="password" id="password" name="password" required placeholder="***********" autocomplete="current-password" />
+                <button class="btn" type="submit" style="margin-top:16px">ورود به پنل</button>
+                <footer>© 2025 Sicily Exports Complex. All Rights Reserved.</footer>
             </form>
         </div>
     </body>
@@ -372,10 +372,10 @@ $count = count($participants);
         <!-- Modernized sidebar -->
         <aside class="sidebar sidebar--modern">
             <div class="side-brand">
-                <div class="brand-avatar">EP</div>
+                <div class="brand-avatar">SC6</div>
                 <div class="brand-meta">
-                    <h3 class="brand-title">پنل مدیریت</h3>
-                    <p class="brand-sub">ثبت‌نام رویداد</p>
+                    <h3 class="brand-title">پنل مدیریت مسابقات</h3>
+                    <p class="brand-sub">سوپرکاپ ششم سیسیلی</p>
                 </div>
             </div>
             <nav class="side-nav">
