@@ -200,6 +200,44 @@ if (!($_SESSION['is_admin'] ?? false)) {
     exit;
 }
 
+// Logged in: handle settings save for SMS.ir
+$smsSaveMsg = '';
+$smsSaveErr = '';
+$smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
+$smsConfig = [];
+if (is_readable($smsConfigPath)) {
+    $tmp = require $smsConfigPath;
+    if (is_array($tmp)) { $smsConfig = $tmp; }
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_smsir') {
+    $newApi  = trim((string)($_POST['smsir_api'] ?? ''));
+    $newLine = trim((string)($_POST['smsir_line'] ?? ''));
+    if ($newApi === '' || $newLine === '') {
+        $smsSaveErr = 'لطفاً هر دو فیلد را تکمیل کنید.';
+    } else {
+        // Normalize line digits only
+        $newLineDigits = preg_replace('/\D+/', '', $newLine);
+        if ($newLineDigits === null) { $newLineDigits = $newLine; }
+
+        // Merge into existing config array
+        $cfg = is_array($smsConfig) ? $smsConfig : [];
+        $cfg['api_key'] = $newApi;
+        $cfg['line_number'] = $newLineDigits;
+
+        // Serialize back to PHP file
+        $export = var_export($cfg, true);
+        $php = "<?php\nreturn " . $export . ";\n";
+        $ok = @file_put_contents($smsConfigPath, $php);
+        if ($ok === false) {
+            $smsSaveErr = 'خطا در ذخیره‌سازی فایل تنظیمات (sms_config.php). مجوز نوشتن را بررسی کنید.';
+        } else {
+            $smsConfig = $cfg;
+            $smsSaveMsg = 'تنظیمات پیامک با موفقیت ذخیره شد.';
+        }
+    }
+}
+
 // Logged in: compute data for participants tab
 $participants = read_participants();
 $countTotal = count($participants);
@@ -314,6 +352,30 @@ $count = count($participants);
             </div>
         </aside>
         <main class="content">
+            <!-- Notification Settings -->
+            <div id="notification-settings" class="card" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">پیامک SMS.ir</h2>
+                <?php if ($smsSaveMsg !== ''): ?>
+                    <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($smsSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($smsSaveErr !== ''): ?>
+                    <div class="tag" style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($smsSaveErr, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="panel.php#notification-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <input type="hidden" name="action" value="save_smsir" />
+                    <label for="smsir_api" style="font-weight:700;">کلید API در SMS.ir</label>
+                    <input class="ctrl" type="text" id="smsir_api" name="smsir_api" placeholder="مثال: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="smsir_line" style="font-weight:700;">شماره خط اختصاصی SMS.ir</label>
+                    <input class="ctrl" type="text" id="smsir_line" name="smsir_line" placeholder="مثال: 3000xxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['line_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <div>
+                        <button class="btn" type="submit">ذخیره تنظیمات</button>
+                    </div>
+                </form>
+            </div>
             <div class="card">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
