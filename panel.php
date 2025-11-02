@@ -391,6 +391,23 @@ $count = count($participants);
         var to = formExport.querySelector('input[name="to"]');
         var fromSh = formExport.querySelector('input[name="from_sh"]');
         var toSh = formExport.querySelector('input[name="to_sh"]');
+        // Make Shamsi fields readonly to force using calendar (prevents invalid manual input)
+        if (fromSh) { try { fromSh.readOnly = true; fromSh.addEventListener('keydown', function(e){ e.preventDefault(); }); fromSh.addEventListener('paste', function(e){ e.preventDefault(); }); } catch(e){} }
+        if (toSh)   { try { toSh.readOnly = true;   toSh.addEventListener('keydown',   function(e){ e.preventDefault(); }); toSh.addEventListener('paste', function(e){ e.preventDefault(); }); } catch(e){} }
+        // Keep end >= start whenever hidden Gregorian values change
+        function enforceOrder(){
+          if (from && to && from.value && to.value) {
+            var f = new Date(from.value); var t = new Date(to.value);
+            if (!isNaN(f) && !isNaN(t) && f.getTime() > t.getTime()) {
+              to.value = from.value;
+              if (toSh && window.persianDate) {
+                try { toSh.value = new persianDate(f.getTime()).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD'); } catch(e){}
+              }
+            }
+          }
+        }
+        if (from) from.addEventListener('change', enforceOrder);
+        if (to)   to.addEventListener('change',   enforceOrder);
         var countBox = document.querySelector('.count-box b');
 
         function params(){
@@ -430,7 +447,7 @@ $count = count($participants);
                 format: 'YYYY/MM/DD',
                 autoClose: true,
                 calendar: { persian: { locale: 'fa' } },
-                onSelect: function(unix){ setHiddenFromUnix(from, unix); }
+                onSelect: function(unix){ setHiddenFromUnix(from, unix); enforceOrder(); }
               });
             }
             if (toSh) {
@@ -439,9 +456,20 @@ $count = count($participants);
                 format: 'YYYY/MM/DD',
                 autoClose: true,
                 calendar: { persian: { locale: 'fa' } },
-                onSelect: function(unix){ setHiddenFromUnix(to, unix); }
+                onSelect: function(unix){ setHiddenFromUnix(to, unix); enforceOrder(); }
               });
             }
+            // Prefill visible Shamsi if Gregorian values already present (e.g., via URL)
+            try {
+              if (from && from.value && fromSh) {
+                var fx = new Date(from.value + 'T00:00:00');
+                if(!isNaN(fx)) fromSh.value = new persianDate(fx.getTime()).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD');
+              }
+              if (to && to.value && toSh) {
+                var tx = new Date(to.value + 'T00:00:00');
+                if(!isNaN(tx)) toSh.value = new persianDate(tx.getTime()).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD');
+              }
+            } catch(e){}
           }
         } catch(e){}
 
