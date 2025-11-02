@@ -313,7 +313,17 @@ if (!is_file($completedMarker)) {
                     . "مجموع مبلغ پرداخت: " . $totalFmt . "\n\n"
                     . "کد رهگیری داخلی: " . $tagVal . "\n"
                     . "کد رهگیری پرداخت: " . $refVal;
-            telegram_notify_admin($tgText);
+            // Build formatted Telegram message (HTML parse_mode)
+            $fullnameHtml = htmlspecialchars((string)$fullname, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $tagHtml      = htmlspecialchars((string)$tagVal, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $refHtml      = htmlspecialchars((string)$refVal, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $tgText =
+                '<b>' . $fullnameHtml . '</b>' . ' در مسابقات ثبت نام کرد ✅' . "\n\n" .
+                '🔖 ' . '<b>تعداد سهم:</b> ' . '<b>' . $qtyVal . '</b>' . "\n" .
+                '💳 ' . '<b>مجموع مبلغ پرداخت:</b> ' . '<b>' . $totalFmt . ' تومان</b>' . "\n\n" .
+                '⬇️ ' . '<b>کد رهگیری داخلی:</b> ' . '<b>' . $tagHtml . '</b>' . "\n" .
+                '✴️ ' . '<b>کد رهگیری پرداخت:</b> ' . '<code>' . $refHtml . '</code>';
+            telegram_notify_admin($tgText, ['parse_mode' => 'HTML']);
 
             // Persian SMS frames
             $buyerText = $fullname . ' ثبت نام شما در سوپرکاپ ششم سیسیلی تکمیل شد! 🏆' . "\n\n"
