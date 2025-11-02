@@ -45,6 +45,38 @@ function fa_digits(string $value): string {
     return strtr($value, $map);
 }
 
+// Normalize a mobile number to 11‑digit local format (e.g., 09000000000)
+function mobile_local(string $raw): string {
+    $d = preg_replace('/\D+/', '', $raw);
+    if ($d === null) { $d = ''; }
+    // Strip common Iran country code prefixes
+    if (strpos($d, '0098') === 0) { $d = substr($d, 4); }
+    if (strpos($d, '98') === 0)   { $d = substr($d, 2); }
+    // Ensure leading 0 for local format
+    if ($d !== '' && $d[0] !== '0') {
+        if (strlen($d) === 10 && $d[0] === '9') {
+            $d = '0' . $d;
+        }
+    }
+    // Return only if it looks like a valid local mobile (11 digits starting with 0)
+    if (strlen($d) === 11 && $d[0] === '0') {
+        return $d;
+    }
+    // Fallback: return the raw digits (may be empty)
+    return $d;
+}
+
+// Human‑readable display: +98 9xx xxx xxxx (from a raw input)
+function mobile_display(string $raw): string {
+    $local = mobile_local($raw);
+    if (strlen($local) === 11 && $local[0] === '0') {
+        $ten = substr($local, 1); // strip leading 0
+        return '+98 ' . substr($ten, 0, 3) . ' ' . substr($ten, 3, 3) . ' ' . substr($ten, 6, 4);
+    }
+    // Fallback to original value when format is unknown
+    return (string)$raw;
+}
+
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -314,7 +346,15 @@ $count = count($participants);
                             <?php foreach ($participants as $row): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td dir="ltr"><?php echo htmlspecialchars($row['mobile'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td dir="ltr">
+                                  <?php
+                                    $mDisp = mobile_display((string)($row['mobile'] ?? ''));
+                                    $mCopy = mobile_local((string)($row['mobile'] ?? ''));
+                                  ?>
+                                  <span class="copy" data-copy="<?php echo htmlspecialchars($mCopy, ENT_QUOTES, 'UTF-8'); ?>" title="کپی شماره ۱۱ رقمی">
+                                    <?php echo htmlspecialchars($mDisp, ENT_QUOTES, 'UTF-8'); ?>
+                                  </span>
+                                </td>
                                 <td><?php echo (int)$row['tickets']; ?></td>
                                 <td><?php echo number_format((int)$row['total']); ?></td>
                                 <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
