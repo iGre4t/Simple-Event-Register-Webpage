@@ -208,8 +208,10 @@ label {
 
 /* Contextual overrides (no markup change needed) */
 /* Export form buttons: minimal look */
+.filters form[action="export.php"] button,
 .filters form[action="export.php"] button.btn {
-  width: auto;
+  display: inline-flex;
+  width: auto !important; /* prevent full-width buttons here */
   background: transparent;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -219,7 +221,9 @@ label {
 }
 .filters form[action="export.php"] button.btn:hover { background:#f3f4f6; border-color:#e5e7eb; }
 /* Second button in export form: keep same neutral style */
+.filters form[action="export.php"] button + button,
 .filters form[action="export.php"] button.btn + button.btn { color:#475569; border-color:#e5e7eb; }
+.filters form[action="export.php"] button + button:hover,
 .filters form[action="export.php"] button.btn + button.btn:hover { background:#f3f4f6; border-color:#e5e7eb; }
 
 /* Archive action buttons inside table */
