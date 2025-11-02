@@ -42,7 +42,11 @@ function read_participants(): array {
         $lineNo = 0; $header = [];
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
-            if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') { $header = array_map('strtolower',$row); continue; }
+            if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
+                // Normalize header cells: trim + lowercase
+                $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
+                continue;
+            }
             if (!empty($header)) {
                 $idx = array_flip($header);
                 $rec = [
@@ -52,9 +56,15 @@ function read_participants(): array {
                     'mobile'    => (string)($row[$idx['mobile'] ?? -1] ?? ''),
                     'total'     => (int)($row[$idx['total'] ?? -1] ?? 0),
                     'ref_id'    => (string)($row[$idx['ref_id'] ?? -1] ?? ''),
+                    // Support partially-upgraded headers: fallback by column count
                     'created_at'=> (string)($row[$idx['created_at'] ?? -1] ?? ''),
                     'paid_at'   => (string)($row[$idx['paid_at'] ?? -1] ?? ''),
                 ];
+                if ($rec['created_at'] === '' && count($row) >= 6) { $rec['created_at'] = (string)$row[5]; }
+                if ($rec['paid_at'] === '' && count($row) >= 7)    { $rec['paid_at']    = (string)$row[6]; }
+                // Authority may not be in old header
+                $rec['authority'] = (string)($row[$idx['authority'] ?? -1] ?? '');
+                if ($rec['authority'] === '' && count($row) >= 8)  { $rec['authority']  = (string)$row[7]; }
             } else {
                 $rec = [
                     'tickets'=>$n,'tag'=>(string)($row[0]??''),'fullname'=>(string)($row[1]??''),

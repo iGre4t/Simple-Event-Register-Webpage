@@ -90,7 +90,8 @@ function read_participants(): array {
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
             if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
-                $header = array_map('strtolower', $row);
+                // Normalize header cells: trim + lowercase
+                $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
                 continue;
             }
             if (!empty($header)) {
@@ -100,9 +101,13 @@ function read_participants(): array {
                 $mobile = (string)($row[$idx['mobile'] ?? -1] ?? '');
                 $total  = (int)($row[$idx['total'] ?? -1] ?? 0);
                 $refId  = (string)($row[$idx['ref_id'] ?? -1] ?? '');
+                // Support partially-upgraded headers: fallback by column count
                 $created= (string)($row[$idx['created_at'] ?? -1] ?? '');
+                if ($created === '' && count($row) >= 6) { $created = (string)$row[5]; }
                 $paid   = (string)($row[$idx['paid_at'] ?? -1] ?? '');
+                if ($paid === '' && count($row) >= 7) { $paid = (string)$row[6]; }
                 $authority = (string)($row[$idx['authority'] ?? -1] ?? '');
+                if ($authority === '' && count($row) >= 8) { $authority = (string)$row[7]; }
             } else {
                 // Legacy without header
                 $tag    = (string)($row[0] ?? '');
@@ -345,7 +350,11 @@ $count = count($participants);
                         <?php else: ?>
                             <?php foreach ($participants as $row): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td>
+                                  <span class="copy" data-copy="<?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید">
+                                    <?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?>
+                                  </span>
+                                </td>
                                 <td dir="ltr">
                                   <?php
                                     $mDisp = mobile_display((string)($row['mobile'] ?? ''));
@@ -637,5 +646,6 @@ $count = count($participants);
     </script>
 </body>
 </html>
+
 
 
