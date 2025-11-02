@@ -306,6 +306,7 @@ $count = count($participants);
         <aside class="sidebar">
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
+                <a href="#notification-settings">تنظیمات اعلانیه</a>
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
             </nav>
             <div class="side-bottom">
