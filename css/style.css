@@ -259,3 +259,12 @@ footer {
   .ctrl { font-size: 15px; }
   .btn { font-size: 15px; }
 }
+
+/* ------------------ 13. Persian Datepicker Font ------------------ */
+/* Ensure the calendar widget uses the site font (Peyda/PeydaWebFaNum) */
+.datepicker-plot-area,
+.datepicker-plot-area * {
+  font-family: var(--app-font), 'PeydaFa', 'Peyda', 'PeydaWebFaNum', 'IRANSans', Tahoma, sans-serif !important;
+}
+/* Slightly larger base font than the plugin default */
+.datepicker-plot-area { font-size: 14px !important; }
