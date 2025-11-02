@@ -391,9 +391,16 @@ $count = count($participants);
         var to = formExport.querySelector('input[name="to"]');
         var fromSh = formExport.querySelector('input[name="from_sh"]');
         var toSh = formExport.querySelector('input[name="to_sh"]');
-        // Make Shamsi fields readonly to force using calendar (prevents invalid manual input)
-        if (fromSh) { try { fromSh.readOnly = true; fromSh.addEventListener('keydown', function(e){ e.preventDefault(); }); fromSh.addEventListener('paste', function(e){ e.preventDefault(); }); } catch(e){} }
-        if (toSh)   { try { toSh.readOnly = true;   toSh.addEventListener('keydown',   function(e){ e.preventDefault(); }); toSh.addEventListener('paste', function(e){ e.preventDefault(); }); } catch(e){} }
+        // Open calendar on click/focus for Shamsi fields
+        function wireOpenCalendar(input){
+          if(!input) return;
+          try {
+            input.addEventListener('focus', function(){ if(window.jQuery){ try{ jQuery(input).trigger('click'); }catch(e){} } });
+            input.addEventListener('click', function(){ if(window.jQuery){ try{ jQuery(input).trigger('click'); }catch(e){} } });
+          } catch(e){}
+        }
+        wireOpenCalendar(fromSh);
+        wireOpenCalendar(toSh);
         // Keep end >= start whenever hidden Gregorian values change
         function enforceOrder(){
           if (from && to && from.value && to.value) {
