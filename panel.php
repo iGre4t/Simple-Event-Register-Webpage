@@ -342,12 +342,12 @@ $count = count($participants);
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
         :root {
-            --sidebar:#0b1220;
-            --sidebar-grad:#0b1220;
-            --sidebar-grad-2:#0f172a;
+            --sidebar:#2563eb; /* fallback */
+            --sidebar-grad:#3b82f6; /* blue-500 */
+            --sidebar-grad-2:#2563eb; /* blue-600 */
             --sidebar-text:#f1f5f9;
-            --sidebar-muted:#94a3b8;
-            --sidebar-hover:#111827;
+            --sidebar-muted:#e2e8f0;
+            --sidebar-hover:rgba(255,255,255,0.12);
             --sidebar-active:#0ea5e9;
         }
         .app { grid-template-columns: 280px 1fr; }
