@@ -112,7 +112,7 @@ function shamsi_datetime(string $dateString): string {
     [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
     $datePart = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
     $timePart = date('H:i', $t);
-    return $datePart . ' ' . $timePart; // space between date and hour
+    return $datePart . '  |  ' . $timePart; // clearer separation between date and time
 }
 
 // Helper to read CSV rows from storage for 1..4 ticket groups
