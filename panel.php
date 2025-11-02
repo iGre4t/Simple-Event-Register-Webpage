@@ -278,7 +278,7 @@ $count = count($participants);
                         </select>
                         <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
                         <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
-                        <button class="btn" style="width:auto; padding:10px 14px">اکسپورت</button>
+                        <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
                     </form>
                 </div>
                 <div style="overflow:auto; margin-top:12px;">
@@ -520,7 +520,7 @@ $count = count($participants);
         } catch(e){}
 
         // Add export Excel button
-        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn'; xBtn.style.cssText='width:auto; padding:10px 14px; background:#1d4ed8; box-shadow:none;'; xBtn.textContent='خروجی Excel';
+        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn btn-minimal btn-blue'; xBtn.style.cssText=''; xBtn.textContent='خروجی Excel';
         formExport.appendChild(xBtn);
         function openExport(url){ window.location.href = url + '?' + params().toString(); }
         xBtn.addEventListener('click', function(){ openExport('export_excel.php'); });

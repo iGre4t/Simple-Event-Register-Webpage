@@ -179,6 +179,63 @@ label {
   cursor: not-allowed;
 }
 
+/* Minimal buttons: lighter, outlined, and compact */
+.btn-minimal {
+  width: auto;
+  background: transparent;
+  color: #334155; /* default neutral */
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  box-shadow: none;
+  transform: none;
+}
+.btn-minimal:hover { background: #f3f4f6; }
+.btn-minimal:active { transform: none; }
+
+/* Color accents for minimal buttons */
+.btn-blue { color: #2563eb; border-color: #bfdbfe; }
+.btn-blue:hover { background: #eff6ff; border-color: #93c5fd; }
+
+.btn-red { color: #dc2626; border-color: #fecaca; }
+.btn-red:hover { background: #fef2f2; border-color: #fca5a5; }
+
+/* Size tweak */
+.btn-sm { padding: 6px 10px; font-size: 14px; }
+
+/* Contextual overrides (no markup change needed) */
+/* Export form buttons: minimal look */
+.filters form[action="export.php"] button.btn {
+  width: auto;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #dc2626; /* CSV: red */
+}
+.filters form[action="export.php"] button.btn:hover { background:#fef2f2; border-color:#fca5a5; }
+/* If a second .btn is present (Excel), make it blue minimal */
+.filters form[action="export.php"] button.btn + button.btn {
+  color:#2563eb; border-color:#bfdbfe;
+}
+.filters form[action="export.php"] button.btn + button.btn:hover {
+  background:#eff6ff; border-color:#93c5fd;
+}
+
+/* Archive action buttons inside table */
+button.btn[data-archive] {
+  width: auto;
+  background: transparent;
+  color:#dc2626;
+  border:1px solid #fecaca;
+  border-radius:8px;
+  padding:6px 10px;
+  font-weight:600;
+}
+button.btn[data-archive]:hover { background:#fef2f2; border-color:#fca5a5; }
+
 /* ------------------ 10. فوتر ------------------ */
 footer {
   margin-top: 20px;
