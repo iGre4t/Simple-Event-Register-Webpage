@@ -556,7 +556,7 @@ $count = count($participants);
                                     <span class="muted">-</span>
                                   <?php endif; ?>
                                 </td>
-                                <td>
+                                <td dir="ltr">
                                   <?php 
                                     $disp = '';
                                     if (!empty($row['created_at'])) {

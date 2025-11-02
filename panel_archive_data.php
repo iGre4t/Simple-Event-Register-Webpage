@@ -286,9 +286,9 @@ if (empty($rows)) {
         echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '</span></td>';
         if (!empty($row['ref_id'])) { echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8') . '</span></td>'; }
         else { echo '<td><span class="muted">-</span></td>'; }
-        if (!empty($row['created_at'])) { $d=shamsi_datetime((string)$row['created_at']); echo '<td>' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '</td>'; }
-        elseif (!empty($row['paid_at'])) { $d=shamsi_datetime((string)$row['paid_at']); echo '<td>' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '</td>'; }
-        else { echo '<td><span class="muted">-</span></td>'; }
+        if (!empty($row['created_at'])) { $d=shamsi_datetime((string)$row['created_at']); echo '<td dir="ltr">' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '</td>'; }
+        elseif (!empty($row['paid_at'])) { $d=shamsi_datetime((string)$row['paid_at']); echo '<td dir="ltr">' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '</td>'; }
+        else { echo '<td dir="ltr"><span class="muted">-</span></td>'; }
         // tools: restore back to ثبت نامی + delete
         $tag = htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8');
         echo '<td>'
