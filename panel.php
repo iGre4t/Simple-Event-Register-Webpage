@@ -336,6 +336,9 @@ $count = count($participants);
         /* Hide the redundant filter button in the first form */
         .filters form:not([action]) button.btn { display: none; }
         .copy { cursor:pointer; user-select:none; }
+        /* Tabs: only show the active section */
+        .tab-section { display: none; }
+        .tab-section.active { display: block; }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
     </style>
 </head>
@@ -353,7 +356,7 @@ $count = count($participants);
         </aside>
         <main class="content">
             <!-- Notification Settings -->
-            <div id="notification-settings" class="card" style="margin-bottom:16px;">
+            <div id="notification-settings" class="card tab-section" style="margin-bottom:16px;">
                 <h2 class="title" style="margin-top:0">پیامک SMS.ir</h2>
                 <?php if ($smsSaveMsg !== ''): ?>
                     <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
@@ -376,7 +379,7 @@ $count = count($participants);
                     </div>
                 </form>
             </div>
-            <div class="card">
+            <div id="participants" class="card tab-section active">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
                     <div class="count-box">
@@ -486,6 +489,30 @@ $count = count($participants);
             </div>
         </main>
     </div>
+    <script>
+      // Tab navigation: show only selected section
+      (function(){
+        var links = Array.from(document.querySelectorAll('.side-nav a[href^="#"]'));
+        var sections = {};
+        links.forEach(function(a){
+          var id = (a.getAttribute('href')||'').slice(1);
+          var sec = document.getElementById(id);
+          if(sec){ sections[id]=sec; }
+        });
+        function activate(id){
+          Object.keys(sections).forEach(function(k){ sections[k].classList.toggle('active', k===id); });
+          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+id); });
+          try{ history.replaceState(null,'','#'+id); }catch(e){}
+        }
+        var initial = (location.hash||'#participants').slice(1);
+        if(!sections[initial]){ initial = Object.keys(sections)[0] || null; }
+        if(initial){ activate(initial); }
+        links.forEach(function(a){
+          a.addEventListener('click', function(ev){ ev.preventDefault(); activate((this.getAttribute('href')||'').slice(1)); });
+        });
+        window.addEventListener('hashchange', function(){ var id=(location.hash||'').slice(1); if(sections[id]) activate(id); });
+      })();
+    </script>
     <script>
       document.addEventListener('click', function(e){
         var el = e.target.closest('.copy');
