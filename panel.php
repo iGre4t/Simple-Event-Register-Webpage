@@ -569,6 +569,7 @@ $count = count($participants);
                     <span class="muted" id="bulkCountArchive">0 مورد انتخاب شده</span>
                     <select class="ctrl" id="bulkActionArchive" style="max-width:200px;">
                         <option value="">انتخاب عملیات</option>
+                        <option value="restore">بازگردانی</option>
                         <option value="delete">حذف دائم</option>
                     </select>
                     <button type="button" class="btn btn-minimal" id="bulkApplyArchive" disabled>اجرا</button>
@@ -638,18 +639,24 @@ $count = count($participants);
 
         function params(){ var p = new URLSearchParams(); if(q && q.value.trim()!=='') p.set('q', q.value.trim()); if(sort && sort.value) p.set('sort', sort.value); return p; }
         function ensureHeader(){ var thead = archSec.querySelector('table thead tr'); if(!thead) return; var hasTools = Array.from(thead.children).some(function(th){ var s=(th.textContent||'').trim(); return s==='ابزار' || s==='Operations'; }); if(!hasTools){ var th=document.createElement('th'); th.textContent='ابزار'; thead.appendChild(th); } }
-        function decorateDelete(){ var del = archSec.querySelectorAll('button[data-delete]'); del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>حذف</span>'; }); try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){} }
+        function decorateTools(){
+          var del = archSec.querySelectorAll('button[data-delete]');
+          del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>حذف</span>'; });
+          var resBtns = archSec.querySelectorAll('button[data-restore]');
+          resBtns.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="corner-up-left"></i><span>بازگردانی</span>'; });
+          try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
+        }
 
         async function refreshArchive(){
           var res = await fetch('panel_archive_data.php?' + params().toString(), {cache:'no-store'});
           var j = await res.json();
-          if(j && j.ok){ tbody.innerHTML = j.rows_html; convertTreeToFa(tbody); ensureHeader(); decorateDelete(); if(countBox) countBox.textContent = toFaDigits(j.count); updateBulkStateArchive(); }
+          if(j && j.ok){ tbody.innerHTML = j.rows_html; convertTreeToFa(tbody); ensureHeader(); decorateTools(); if(countBox) countBox.textContent = toFaDigits(j.count); updateBulkStateArchive(); }
         }
         window.refreshArchive = refreshArchive;
         var t; if(q){ q.addEventListener('input', function(){ clearTimeout(t); t=setTimeout(refreshArchive, 200); }); }
         if(sort){ sort.addEventListener('change', refreshArchive); }
 
-        // Capture-phase delete handler for archive to stop base handler
+        // Capture-phase handlers for archive to stop base handler
         document.addEventListener('click', async function(e){
           var btn = e.target.closest('#archive button[data-delete]');
           if(!btn) return;
@@ -659,6 +666,16 @@ $count = count($participants);
           var fd = new FormData(); fd.set('action','delete'); fd.set('tag', tag);
           var r = await fetch('panel_archive_data.php', {method:'POST', body: fd});
           var j = await r.json(); if(j && j.ok) refreshArchive(); else alert('خطا در حذف');
+        }, true);
+        document.addEventListener('click', async function(e){
+          var btn = e.target.closest('#archive button[data-restore]');
+          if(!btn) return;
+          e.preventDefault(); e.stopPropagation();
+          var tag = btn.getAttribute('data-restore');
+          if(!confirm('بازگردانی این مورد به لیست ثبت نامی انجام شود؟')) return;
+          var fd = new FormData(); fd.set('action','restore'); fd.set('tag', tag);
+          var r = await fetch('panel_archive_data.php', {method:'POST', body: fd});
+          var j = await r.json(); if(j && j.ok) refreshArchive(); else alert('خطا در بازگردانی');
         }, true);
 
         function selectedTagsArchive(){ return Array.from(archSec.querySelectorAll('#rowsBodyArchive .row-check-arch:checked')).map(function(cb){ return cb.value; }); }
@@ -670,6 +687,7 @@ $count = count($participants);
           var actSel = document.getElementById('bulkActionArchive'); var doWhat = actSel ? actSel.value : '';
           var tags = selectedTagsArchive(); if (!doWhat || tags.length===0) return;
           if (doWhat==='delete' && !confirm('آیا از حذف موارد انتخاب‌شده مطمئن هستید؟')) return;
+          if (doWhat==='restore' && !confirm('بازگردانی موارد انتخاب‌شده انجام شود؟')) return;
           var fd = new FormData(); fd.set('action','bulk'); fd.set('do', doWhat); tags.forEach(function(t){ fd.append('tags[]', t); });
           var r = await fetch('panel_archive_data.php', {method:'POST', body: fd});
           var j = await r.json(); if(j && j.ok){ refreshArchive(); } else { alert('خطا در اجرای عملیات'); }

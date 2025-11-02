@@ -66,7 +66,7 @@ function read_archived(): array {
     return $out;
 }
 
-// Mutations for archive: delete single or bulk
+// Mutations for archive: delete/restore single or bulk
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $action = $_POST['action'] ?? '';
     $storage = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -101,21 +101,109 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         exit;
     }
 
+    // Restore a single archived record back to participants CSV
+    if ($action === 'restore') {
+        $tag = trim((string)($_POST['tag'] ?? ''));
+        if ($tag === '') { echo json_encode(['ok'=>false,'error'=>'bad_tag']); exit; }
+        $new = [];
+        $restored = false;
+        foreach ($rows as $r) {
+            $rtag = '';
+            if ($header) { $rtag = (string)($r[$idx['tag'] ?? -1] ?? ''); } else { $rtag = (string)($r[1] ?? ''); }
+            if ($rtag === $tag && !$restored) {
+                // Append back to appropriate tickets CSV
+                $tickets = 0;
+                if ($header) { $tickets = (int)($r[$idx['tickets'] ?? -1] ?? 0); } else { $tickets = (int)($r[0] ?? 0); }
+                if ($tickets < 1 || $tickets > 4) { $tickets = 1; }
+                $dest = $storage . DIRECTORY_SEPARATOR . $tickets . ' tickets.csv';
+                $afh = fopen($dest, 'a+');
+                $st = fstat($afh); if (($st['size'] ?? 0) === 0) { fputcsv($afh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']); }
+                // Ensure order for destination columns (without tickets column)
+                if ($header) {
+                    $rowOut = [
+                        (string)($r[$idx['tag'] ?? -1] ?? ''),
+                        (string)($r[$idx['fullname'] ?? -1] ?? ''),
+                        (string)($r[$idx['mobile'] ?? -1] ?? ''),
+                        (string)($r[$idx['total'] ?? -1] ?? ''),
+                        (string)($r[$idx['ref_id'] ?? -1] ?? ''),
+                        (string)($r[$idx['created_at'] ?? -1] ?? ''),
+                        (string)($r[$idx['paid_at'] ?? -1] ?? ''),
+                        (string)($r[$idx['authority'] ?? -1] ?? ''),
+                    ];
+                } else {
+                    $rowOut = [ (string)($r[1]??''), (string)($r[2]??''), (string)($r[3]??''), (string)($r[4]??''), (string)($r[5]??''), (string)($r[6]??''), (string)($r[7]??''), (string)($r[8]??'') ];
+                }
+                fputcsv($afh, $rowOut); fclose($afh);
+                $restored = true; // skip adding to new (removing from archive)
+            } else {
+                $new[] = $r;
+            }
+        }
+        // Write remaining archive rows back
+        $wf = fopen($arch, 'w'); if ($header) { fputcsv($wf, $header); }
+        foreach ($new as $r) { fputcsv($wf, $r); }
+        fclose($wf);
+        echo json_encode(['ok'=>true, 'restored'=>$restored]);
+        exit;
+    }
+
     if ($action === 'bulk') {
         $do = $_POST['do'] ?? '';
         $tags = isset($_POST['tags']) ? (array)$_POST['tags'] : (isset($_POST['tags']) ? (array)$_POST['tags'] : []);
         $tags = array_values(array_map('strval', $tags));
-        if ($do !== 'delete' || empty($tags)) { echo json_encode(['ok'=>false,'error'=>'bad_request']); exit; }
-        $del = array_flip($tags); $new = [];
+        if (empty($tags)) { echo json_encode(['ok'=>false,'error'=>'bad_request']); exit; }
+        $match = array_flip($tags); $new = [];
+        $processed = 0;
+        // Prepare appenders per tickets for restore
+        $appenders = [];
         foreach ($rows as $r) {
             $rtag = '';
             if ($header) { $rtag = (string)($r[$idx['tag'] ?? -1] ?? ''); } else { $rtag = (string)($r[1] ?? ''); }
-            if (!isset($del[$rtag])) { $new[] = $r; }
+            if (isset($match[$rtag])) {
+                $processed++;
+                if ($do === 'delete') {
+                    // skip to delete
+                    continue;
+                } elseif ($do === 'restore') {
+                    // append back to tickets file
+                    $tickets = 0;
+                    if ($header) { $tickets = (int)($r[$idx['tickets'] ?? -1] ?? 0); } else { $tickets = (int)($r[0] ?? 0); }
+                    if ($tickets < 1 || $tickets > 4) { $tickets = 1; }
+                    if (!isset($appenders[$tickets])) {
+                        $dest = $storage . DIRECTORY_SEPARATOR . $tickets . ' tickets.csv';
+                        $afh = fopen($dest, 'a+');
+                        $st = fstat($afh); if (($st['size'] ?? 0) === 0) { fputcsv($afh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']); }
+                        $appenders[$tickets] = $afh;
+                    }
+                    if ($header) {
+                        $rowOut = [
+                            (string)($r[$idx['tag'] ?? -1] ?? ''),
+                            (string)($r[$idx['fullname'] ?? -1] ?? ''),
+                            (string)($r[$idx['mobile'] ?? -1] ?? ''),
+                            (string)($r[$idx['total'] ?? -1] ?? ''),
+                            (string)($r[$idx['ref_id'] ?? -1] ?? ''),
+                            (string)($r[$idx['created_at'] ?? -1] ?? ''),
+                            (string)($r[$idx['paid_at'] ?? -1] ?? ''),
+                            (string)($r[$idx['authority'] ?? -1] ?? ''),
+                        ];
+                    } else {
+                        $rowOut = [ (string)($r[1]??''), (string)($r[2]??''), (string)($r[3]??''), (string)($r[4]??''), (string)($r[5]??''), (string)($r[6]??''), (string)($r[7]??''), (string)($r[8]??'') ];
+                    }
+                    fputcsv($appenders[$tickets], $rowOut);
+                    continue; // do not keep in archive
+                }
+            } else {
+                $new[] = $r;
+            }
         }
+        // Close appenders
+        foreach ($appenders as $fh) { fclose($fh); }
+
+        // Write remaining rows back for delete/restore
         $wf = fopen($arch, 'w'); if ($header) { fputcsv($wf, $header); }
         foreach ($new as $r) { fputcsv($wf, $r); }
         fclose($wf);
-        echo json_encode(['ok'=>true, 'processed'=>count($tags)]);
+        echo json_encode(['ok'=>true, 'processed'=>$processed]);
         exit;
     }
 }
@@ -163,9 +251,10 @@ if (empty($rows)) {
         if (!empty($row['created_at'])) { echo '<td>' . htmlspecialchars(date('Y-m-d H:i', strtotime($row['created_at'])), ENT_QUOTES, 'UTF-8') . '</td>'; }
         elseif (!empty($row['paid_at'])) { echo '<td>' . htmlspecialchars(date('Y-m-d H:i', strtotime($row['paid_at'])), ENT_QUOTES, 'UTF-8') . '</td>'; }
         else { echo '<td><span class="muted">-</span></td>'; }
-        // tools: only delete (no archive)
+        // tools: restore back to ثبت نامی + delete
         $tag = htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8');
         echo '<td>'
+           . '<button class="btn" style="width:auto; padding:6px 10px" data-restore="' . $tag . '">بازگردانی</button> '
            . '<button class="btn" style="width:auto; padding:6px 10px" data-delete="' . $tag . '">حذف</button>'
            . '</td>';
         echo '</tr>';
@@ -174,4 +263,3 @@ if (empty($rows)) {
 $rowsHtml = ob_get_clean();
 echo json_encode(['ok'=>true,'count'=>count($rows),'rows_html'=>$rowsHtml], JSON_UNESCAPED_UNICODE);
 exit;
-
