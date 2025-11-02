@@ -36,6 +36,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username']
     }
 }
 
+// Convert Latin digits to Persian digits for UI display
+function fa_digits(string $value): string {
+    static $map = [
+        '0' => '۰','1' => '۱','2' => '۲','3' => '۳','4' => '۴',
+        '5' => '۵','6' => '۶','7' => '۷','8' => '۸','9' => '۹'
+    ];
+    return strtr($value, $map);
+}
+
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -253,7 +262,7 @@ $count = count($participants);
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
                     <div class="count-box">
                         <span>تعداد ثبت نامی ها</span>
-                        <b><?php echo number_format($count); ?></b>
+                        <b><?php echo fa_digits(number_format($count)); ?></b>
                     </div>
                 </div>
                 <!--
@@ -365,6 +374,21 @@ $count = count($participants);
     </script>
     <script>
       (function(){
+        // JS helpers to render Persian digits in the UI
+        function toFaDigits(str){
+          if(!str) return str;
+          return String(str).replace(/\d/g, function(d){ return '۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d,10)); });
+        }
+        function convertTreeToFa(root){
+          if(!root) return;
+          var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+          var node; var changes=[];
+          while((node = walker.nextNode())){
+            var t = node.nodeValue;
+            if(t && /\d/.test(t)) changes.push(node);
+          }
+          changes.forEach(function(n){ n.nodeValue = toFaDigits(n.nodeValue); });
+        }
         var tbody = document.getElementById('rowsBody');
         var filtersWrap = document.querySelector('.filters');
         if(!filtersWrap || !tbody) return;
@@ -476,7 +500,8 @@ $count = count($participants);
           var j = await res.json();
           if(j && j.ok){
             tbody.innerHTML = j.rows_html;
-            if(countBox) countBox.textContent = j.count;
+            convertTreeToFa(tbody);
+            if(countBox) countBox.textContent = toFaDigits(j.count);
             ensureHeader();
             decorateArchiveButtons();
           }
@@ -566,6 +591,7 @@ $count = count($participants);
           if(!hasTools){ var th=document.createElement('th'); th.textContent='ابزار'; thead.appendChild(th); }
         }
         ensureHeader();
+        convertTreeToFa(document.body);
         refresh();
       })();
     </script>
