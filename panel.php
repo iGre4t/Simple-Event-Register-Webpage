@@ -394,7 +394,7 @@ $count = count($participants);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(val).then(function(){
             var old = el.textContent;
-            el.textContent = 'Ú©Ù¾ÛŒ Ø´Ø¯';
+            el.textContent = 'ذخیره شد';
             setTimeout(function(){ el.textContent = old; }, 1000);
           });
         }

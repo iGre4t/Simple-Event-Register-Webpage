@@ -8,6 +8,29 @@ if (!($_SESSION['is_admin'] ?? false)) {
     exit;
 }
 
+// Normalize a mobile number to 11‑digit local format (e.g., 09000000000)
+function mobile_local(string $raw): string {
+    $d = preg_replace('/\D+/', '', $raw);
+    if ($d === null) { $d = ''; }
+    if (strpos($d, '0098') === 0) { $d = substr($d, 4); }
+    if (strpos($d, '98') === 0)   { $d = substr($d, 2); }
+    if ($d !== '' && $d[0] !== '0') {
+        if (strlen($d) === 10 && $d[0] === '9') { $d = '0' . $d; }
+    }
+    if (strlen($d) === 11 && $d[0] === '0') { return $d; }
+    return $d;
+}
+
+// Human‑readable display: +98 9xx xxx xxxx
+function mobile_display(string $raw): string {
+    $local = mobile_local($raw);
+    if (strlen($local) === 11 && $local[0] === '0') {
+        $ten = substr($local, 1);
+        return '+98 ' . substr($ten, 0, 3) . ' ' . substr($ten, 3, 3) . ' ' . substr($ten, 6, 4);
+    }
+    return (string)$raw;
+}
+
 // Shared reader copied from panel with enhancements
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -133,7 +156,9 @@ if (empty($participants)) {
     foreach ($participants as $row) {
         echo '<tr>'; 
         echo '<td>' . htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8') . '</td>';
-        echo '<td dir="ltr">' . htmlspecialchars($row['mobile'], ENT_QUOTES, 'UTF-8') . '</td>';
+        $mDisp = mobile_display((string)($row['mobile'] ?? ''));
+        $mCopy = mobile_local((string)($row['mobile'] ?? ''));
+        echo '<td dir="ltr"><span class="copy" data-copy="' . htmlspecialchars($mCopy, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($mDisp, ENT_QUOTES, 'UTF-8') . '</span></td>';
         echo '<td>' . (int)$row['tickets'] . '</td>';
         echo '<td>' . number_format((int)$row['total']) . '</td>';
         echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '</span></td>';
@@ -153,4 +178,3 @@ $rowsHtml = ob_get_clean();
 
 echo json_encode(['ok'=>true,'count'=>count($participants),'rows_html'=>$rowsHtml], JSON_UNESCAPED_UNICODE);
 exit;
-
