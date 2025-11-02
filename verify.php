@@ -339,8 +339,8 @@ if (!is_file($completedMarker)) {
                         . 'کد رهگیری داخلی: ' . $tagVal . "\n"
                         . 'کد رهگیری پرداخت: ' . $refVal;
 
-            // Admin recipients: configured + extra fixed number
-            $extraAdmin = normalize_mobile_local09('09220463874');
+            // Admin recipients: configured + extra from settings (optional)
+            $extraAdmin = normalize_mobile_local09((string)($smsConfig['admin_mobile_2'] ?? ''));
             $adminMobiles = [];
             if ($adminMobile !== '') { $adminMobiles[] = $adminMobile; }
             if ($extraAdmin !== '' && !in_array($extraAdmin, $adminMobiles, true)) { $adminMobiles[] = $extraAdmin; }

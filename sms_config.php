@@ -11,6 +11,8 @@ return [
 
     // Admin mobile to receive notifications
     'admin_mobile' => '09102024292',
+    // Optional: second admin mobile to receive notifications
+    'admin_mobile_2' => '',
 
     // Dedicated line number for Bulk API (from SMS.ir panel)
     'line_number' => '300021150920',
@@ -26,4 +28,3 @@ return [
     // Set true if you are using a Sandbox API key (Verify templateId = 123456 with name "Code")
     'sandbox' => false,
 ];
-
