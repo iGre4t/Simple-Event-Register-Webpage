@@ -340,10 +340,55 @@ $count = count($participants);
         .tab-section { display: none; }
         .tab-section.active { display: block; }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
+        /* Sidebar redesign overrides */
+        :root {
+            --sidebar:#0b1220;
+            --sidebar-grad:#0b1220;
+            --sidebar-grad-2:#0f172a;
+            --sidebar-text:#f1f5f9;
+            --sidebar-muted:#94a3b8;
+            --sidebar-hover:#111827;
+            --sidebar-active:#0ea5e9;
+        }
+        .app { grid-template-columns: 280px 1fr; }
+        .sidebar { background: linear-gradient(180deg, var(--sidebar-grad), var(--sidebar-grad-2)); padding:20px 16px; border-left:1px solid rgba(255,255,255,0.04); }
+        /* Hide legacy sidebar when modern one is present */
+        .app > aside.sidebar:not(.sidebar--modern){ display:none !important; }
+        .side-brand { display:flex; align-items:center; gap:12px; margin-bottom: 20px; }
+        .brand-avatar { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); font-weight:800; color:#fff; }
+        .brand-meta { display:flex; flex-direction:column; gap:2px; }
+        .brand-title { margin:0; font-size:16px; font-weight:800; color:#fff; }
+        .brand-sub { margin:0; font-size:12px; color:var(--sidebar-muted); }
+        .side-nav { display:flex; flex-direction:column; gap:6px; }
+        .side-nav a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--sidebar-text); text-decoration:none; font-weight:700; position:relative; transition: background .15s ease, color .15s ease; }
+        .side-nav a:hover { background: var(--sidebar-hover); }
+        .side-nav a.active { background: var(--sidebar-hover); color:#fff; }
+        .side-nav a.active::before { content:''; position:absolute; inset-inline-start: -16px; top:8px; bottom:8px; width:3px; border-radius:2px; background: var(--sidebar-active); }
+        .side-bottom { margin-top:auto; }
     </style>
 </head>
 <body>
     <div class="app">
+        <!-- Modernized sidebar -->
+        <aside class="sidebar sidebar--modern">
+            <div class="side-brand">
+                <div class="brand-avatar">EP</div>
+                <div class="brand-meta">
+                    <h3 class="brand-title">پنل مدیریت</h3>
+                    <p class="brand-sub">ثبت‌نام رویداد</p>
+                </div>
+            </div>
+            <nav class="side-nav">
+                <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
+                <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
+                <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
+            </nav>
+            <div class="side-bottom">
+                <a class="side-nav__link logout" href="panel.php?logout=1" style="display:flex; align-items:center; gap:10px;">
+                    <i data-feather="log-out"></i><span>خروج از حساب</span>
+                </a>
+            </div>
+        </aside>
         <aside class="sidebar">
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
