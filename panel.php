@@ -251,17 +251,22 @@ if (is_readable($smsConfigPath)) {
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_smsir') {
     $newApi  = trim((string)($_POST['smsir_api'] ?? ''));
     $newLine = trim((string)($_POST['smsir_line'] ?? ''));
+    $newAdmin = trim((string)($_POST['smsir_admin'] ?? ''));
     if ($newApi === '' || $newLine === '') {
         $smsSaveErr = 'لطفاً هر دو فیلد را تکمیل کنید.';
     } else {
         // Normalize line digits only
         $newLineDigits = preg_replace('/\D+/', '', $newLine);
         if ($newLineDigits === null) { $newLineDigits = $newLine; }
+        // Admin number: digits only; final normalization occurs during send
+        $newAdminDigits = preg_replace('/\D+/', '', $newAdmin);
+        if ($newAdminDigits === null) { $newAdminDigits = $newAdmin; }
 
         // Merge into existing config array
         $cfg = is_array($smsConfig) ? $smsConfig : [];
         $cfg['api_key'] = $newApi;
         $cfg['line_number'] = $newLineDigits;
+        $cfg['admin_mobile'] = $newAdminDigits;
 
         // Serialize back to PHP file
         $export = var_export($cfg, true);
@@ -464,6 +469,8 @@ $count = count($participants);
                     <div>
                         <button class="btn" type="submit">ذخیره تنظیمات</button>
                     </div>
+                    <label for="smsir_admin" style="font-weight:700;">????? ???? (???????? ??????)</label>
+                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                 </form>
             </div>
             <div id="participants" class="card tab-section active">
