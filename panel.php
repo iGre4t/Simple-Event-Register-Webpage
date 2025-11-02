@@ -172,15 +172,29 @@ $count = count($participants);
     <title>پنل ثبت نام مسابقات</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
-        @font-face { font-family:'PeydaWebFaNum'; src:url('fonts/PeydaWebFaNum-Bold.woff2') format('woff2'); font-weight:700; font-style:normal; font-display:swap; }
+        @font-face {
+            font-family:'PeydaWebFaNum';
+            src:
+              url('fonts/PeydaWebFaNum-Regular.woff2') format('woff2'),
+              url('../fonts/PeydaWebFaNum-Regular.woff2') format('woff2'),
+              url('/fonts/PeydaWebFaNum-Regular.woff2') format('woff2');
+            font-weight:400; font-style:normal; font-display:swap;
+        }
+        @font-face {
+            font-family:'PeydaWebFaNum';
+            src:
+              url('fonts/PeydaWebFaNum-Bold.woff2') format('woff2'),
+              url('../fonts/PeydaWebFaNum-Bold.woff2') format('woff2'),
+              url('/fonts/PeydaWebFaNum-Bold.woff2') format('woff2');
+            font-weight:700; font-style:normal; font-display:swap;
+        }
         :root {
             --sidebar:#0f172a;
             --sidebar-text:#f1f5f9;
             --sidebar-muted:#94a3b8;
             --brand:#C63437;
         }
-        body { min-height: 100svh; margin:0; background:#f1f5f9; font-family:'PeydaWebFaNum', sans-serif; }
+        body { min-height: 100svh; margin:0; background:#f1f5f9; font-family:'Peyda', 'PeydaWebFaNum', 'IRANSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100svh; }
         .sidebar {
             background: var(--sidebar);
