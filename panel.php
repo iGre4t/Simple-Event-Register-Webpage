@@ -176,6 +176,11 @@ $count = count($participants);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>پنل ثبت نام مسابقات</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- Persian datepicker assets for admin panel -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     <style>
         @font-face {
             font-family:'PeydaWebFaNum';
@@ -420,9 +425,19 @@ $count = count($participants);
         // Button click handlers to open calendars
         function openCalendarFor(inputText, inputNative){
           try {
-            if (inputText && window.jQuery) { jQuery(inputText).trigger('click'); return; }
+            if (inputText) { inputText.focus(); }
+            if (inputText && window.jQuery) {
+              try {
+                var $t = jQuery(inputText);
+                // Try plugin's API instance if available
+                var api = $t.data('datepicker');
+                if (api && typeof api.show === 'function') { api.show(); return; }
+                $t.trigger('focus');
+                $t.trigger('click');
+                return;
+              } catch(e){}
+            }
             if (inputNative && typeof inputNative.showPicker === 'function') { inputNative.showPicker(); return; }
-            if (inputText) { inputText.focus(); return; }
             if (inputNative) { inputNative.focus(); }
           } catch(e){}
         }
@@ -490,7 +505,10 @@ $count = count($participants);
                 format: 'YYYY/MM/DD',
                 autoClose: true,
                 calendar: { persian: { locale: 'fa' } },
-                onSelect: function(unix){ setHiddenFromUnix(from, unix); enforceOrder(); }
+                onSelect: function(unix){
+                  try { if (fromSh) fromSh.value = new persianDate(unix).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD'); } catch(e){}
+                  setHiddenFromUnix(from, unix); enforceOrder();
+                }
               });
             }
             if (toSh) {
@@ -499,7 +517,10 @@ $count = count($participants);
                 format: 'YYYY/MM/DD',
                 autoClose: true,
                 calendar: { persian: { locale: 'fa' } },
-                onSelect: function(unix){ setHiddenFromUnix(to, unix); enforceOrder(); }
+                onSelect: function(unix){
+                  try { if (toSh) toSh.value = new persianDate(unix).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD'); } catch(e){}
+                  setHiddenFromUnix(to, unix); enforceOrder();
+                }
               });
             }
             // Prefill visible Shamsi if Gregorian values already present (e.g., via URL)
