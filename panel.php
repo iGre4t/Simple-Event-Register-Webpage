@@ -380,9 +380,19 @@ $count = count($participants);
           var vTo   = document.createElement('input'); vTo.type='text'; vTo.id='to_sh';   vTo.name='to_sh';   vTo.className='ctrl shamsi'; vTo.placeholder='مثال: ۱۴۰۳/۰۸/۱۲'; vTo.autocomplete='off'; vTo.setAttribute('inputmode','numeric');
           formExport.insertBefore(lFrom, oldFrom);
           formExport.insertBefore(vFrom, oldFrom);
+          // Add calendar button for From
+          var bFrom = document.createElement('button');
+          bFrom.type='button'; bFrom.className='btn date-btn'; bFrom.title='Calendar'; bFrom.setAttribute('aria-label','Open calendar');
+          bFrom.textContent='📅'; bFrom.style.cssText='width:auto;padding:8px 10px;line-height:1;';
+          formExport.insertBefore(bFrom, oldFrom);
           formExport.insertBefore(hFrom, oldFrom);
           formExport.insertBefore(lTo, oldTo);
           formExport.insertBefore(vTo, oldTo);
+          // Add calendar button for To
+          var bTo = document.createElement('button');
+          bTo.type='button'; bTo.className='btn date-btn'; bTo.title='Calendar'; bTo.setAttribute('aria-label','Open calendar');
+          bTo.textContent='📅'; bTo.style.cssText='width:auto;padding:8px 10px;line-height:1;';
+          formExport.insertBefore(bTo, oldTo);
           formExport.insertBefore(hTo, oldTo);
           oldFrom.name = 'from_old'; oldFrom.style.display='none';
           oldTo.name   = 'to_old';   oldTo.style.display='none';
@@ -391,6 +401,12 @@ $count = count($participants);
         var to = formExport.querySelector('input[name="to"]');
         var fromSh = formExport.querySelector('input[name="from_sh"]');
         var toSh = formExport.querySelector('input[name="to_sh"]');
+        var fromOld = formExport.querySelector('input[name="from_old"]');
+        var toOld   = formExport.querySelector('input[name="to_old"]');
+        var bFromEl = formExport.querySelector('button.date-btn[aria-label="Open calendar"]');
+        // Because two buttons share same label, find second by proximity to to_sh
+        var buttons = formExport.querySelectorAll('button.date-btn');
+        var bToEl = buttons.length>1 ? buttons[1] : null;
         // Open calendar on click/focus for Shamsi fields
         function wireOpenCalendar(input){
           if(!input) return;
@@ -401,6 +417,26 @@ $count = count($participants);
         }
         wireOpenCalendar(fromSh);
         wireOpenCalendar(toSh);
+        // Button click handlers to open calendars
+        function openCalendarFor(inputText, inputNative){
+          try {
+            if (inputText && window.jQuery) { jQuery(inputText).trigger('click'); return; }
+            if (inputNative && typeof inputNative.showPicker === 'function') { inputNative.showPicker(); return; }
+            if (inputText) { inputText.focus(); return; }
+            if (inputNative) { inputNative.focus(); }
+          } catch(e){}
+        }
+        if (bFromEl) bFromEl.addEventListener('click', function(){ openCalendarFor(fromSh, fromOld); });
+        if (bToEl)   bToEl.addEventListener('click',   function(){ openCalendarFor(toSh, toOld); });
+        // For native date inputs, attempt to open the picker on focus/click
+        function wireNativeDatePicker(input){
+          if(!input) return;
+          function open(){ try{ if(typeof input.showPicker === 'function'){ input.showPicker(); } }catch(e){} }
+          input.addEventListener('focus', open);
+          input.addEventListener('click', open);
+        }
+        wireNativeDatePicker(from);
+        wireNativeDatePicker(to);
         // Keep end >= start whenever hidden Gregorian values change
         function enforceOrder(){
           if (from && to && from.value && to.value) {
