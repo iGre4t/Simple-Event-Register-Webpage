@@ -90,17 +90,28 @@ function read_participants(): array {
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
             if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
-                // Normalize header cells: trim + lowercase
+                // Normalize header cells and build alias-aware index
                 $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
+                $alias = [];
+                foreach ($header as $i => $h) {
+                    $k = preg_replace('/[^a-z0-9]+/', '_', $h);
+                    if ($k === 'refid' || $k === 'reference_id' || $k === 'referenceid' || $k === 'ref_id') { $k = 'ref_id'; }
+                    if ($k === 'name') { $k = 'fullname'; }
+                    $alias[$k] = $i;
+                }
+                $header = array_keys($alias) ? array_replace(array_fill(0, count($row), ''), $header) : $header; // keep length
+                // Store computed index map in a variable we will use
+                $idxAlias = $alias;
                 continue;
             }
             if (!empty($header)) {
-                $idx = array_flip($header);
+                $idx = isset($idxAlias) && is_array($idxAlias) ? $idxAlias : array_flip($header);
                 $tag    = (string)($row[$idx['tag'] ?? -1] ?? '');
                 $name   = (string)($row[$idx['fullname'] ?? -1] ?? '');
                 $mobile = (string)($row[$idx['mobile'] ?? -1] ?? '');
                 $total  = (int)($row[$idx['total'] ?? -1] ?? 0);
                 $refId  = (string)($row[$idx['ref_id'] ?? -1] ?? '');
+                if ($refId === '' && count($row) >= 5) { $refId = (string)$row[4]; }
                 // Support partially-upgraded headers: fallback by column count
                 $created= (string)($row[$idx['created_at'] ?? -1] ?? '');
                 if ($created === '' && count($row) >= 6) { $created = (string)$row[5]; }
@@ -108,6 +119,14 @@ function read_participants(): array {
                 if ($paid === '' && count($row) >= 7) { $paid = (string)$row[6]; }
                 $authority = (string)($row[$idx['authority'] ?? -1] ?? '');
                 if ($authority === '' && count($row) >= 8) { $authority = (string)$row[7]; }
+                // If ref_id is empty but authority exists, try completed marker JSON
+                if ($refId === '' && $authority !== '') {
+                    $completed = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'completed' . DIRECTORY_SEPARATOR . $authority . '.json';
+                    if (is_file($completed)) {
+                        $cj = json_decode(@file_get_contents($completed), true);
+                        if (is_array($cj) && !empty($cj['ref_id'])) { $refId = (string)$cj['ref_id']; }
+                    }
+                }
             } else {
                 // Legacy without header
                 $tag    = (string)($row[0] ?? '');

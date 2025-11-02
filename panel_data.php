@@ -43,12 +43,19 @@ function read_participants(): array {
         while (($row = fgetcsv($fh)) !== false) {
             $lineNo++;
             if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tag') {
-                // Normalize header cells: trim + lowercase
+                // Normalize header cells and build alias-aware index
                 $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
+                $idxAlias = [];
+                foreach ($header as $i => $h) {
+                    $k = preg_replace('/[^a-z0-9]+/', '_', $h);
+                    if ($k === 'refid' || $k === 'reference_id' || $k === 'referenceid' || $k === 'ref_id') { $k = 'ref_id'; }
+                    if ($k === 'name') { $k = 'fullname'; }
+                    $idxAlias[$k] = $i;
+                }
                 continue;
             }
             if (!empty($header)) {
-                $idx = array_flip($header);
+                $idx = isset($idxAlias) && is_array($idxAlias) ? $idxAlias : array_flip($header);
                 $rec = [
                     'tickets'   => $n,
                     'tag'       => (string)($row[$idx['tag'] ?? -1] ?? ''),
@@ -60,11 +67,20 @@ function read_participants(): array {
                     'created_at'=> (string)($row[$idx['created_at'] ?? -1] ?? ''),
                     'paid_at'   => (string)($row[$idx['paid_at'] ?? -1] ?? ''),
                 ];
+                if ($rec['ref_id'] === '' && count($row) >= 5) { $rec['ref_id'] = (string)$row[4]; }
                 if ($rec['created_at'] === '' && count($row) >= 6) { $rec['created_at'] = (string)$row[5]; }
                 if ($rec['paid_at'] === '' && count($row) >= 7)    { $rec['paid_at']    = (string)$row[6]; }
                 // Authority may not be in old header
                 $rec['authority'] = (string)($row[$idx['authority'] ?? -1] ?? '');
                 if ($rec['authority'] === '' && count($row) >= 8)  { $rec['authority']  = (string)$row[7]; }
+                // If ref_id is still empty but we have authority, try completed marker
+                if ($rec['ref_id'] === '' && $rec['authority'] !== '') {
+                    $completed = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'completed' . DIRECTORY_SEPARATOR . $rec['authority'] . '.json';
+                    if (is_file($completed)) {
+                        $cj = json_decode(@file_get_contents($completed), true);
+                        if (is_array($cj) && !empty($cj['ref_id'])) { $rec['ref_id'] = (string)$cj['ref_id']; }
+                    }
+                }
             } else {
                 $rec = [
                     'tickets'=>$n,'tag'=>(string)($row[0]??''),'fullname'=>(string)($row[1]??''),
