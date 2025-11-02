@@ -77,6 +77,44 @@ function mobile_display(string $raw): string {
     return (string)$raw;
 }
 
+// Lightweight Gregorian -> Jalali conversion and formatter
+function gregorian_to_jalali(int $gy, int $gm, int $gd): array {
+    $g_d_m = [0,31,59,90,120,151,181,212,243,273,304,334];
+    $gy2 = $gy - 1600;
+    $gm2 = $gm - 1;
+    $gd2 = $gd - 1;
+    $g_day_no = 365*$gy2 + (int)(($gy2+3)/4) - (int)(($gy2+99)/100) + (int)(($gy2+399)/400);
+    $g_day_no += $g_d_m[$gm2] + $gd2;
+    if ($gm2 > 1 && (($gy%4==0 && $gy%100!=0) || ($gy%400==0))) $g_day_no++;
+    $j_day_no = $g_day_no - 79;
+    $j_np = (int)($j_day_no / 12053);
+    $j_day_no %= 12053;
+    $jy = 979 + 33*$j_np + 4*(int)($j_day_no/1461);
+    $j_day_no %= 1461;
+    if ($j_day_no >= 366) {
+        $jy += (int)(($j_day_no-366)/365);
+        $j_day_no = ($j_day_no-366)%365;
+    }
+    for ($jm=0; $jm<11 && $j_day_no >= [31,31,31,31,31,31,30,30,30,30,30,29][$jm]; $jm++) {
+        $j_day_no -= [31,31,31,31,31,31,30,30,30,30,30,29][$jm];
+    }
+    $jm += 1;
+    $jd = $j_day_no + 1;
+    return [$jy, $jm, $jd];
+}
+
+function shamsi_datetime(string $dateString): string {
+    $t = strtotime($dateString);
+    if (!$t) return '';
+    $gy = (int)date('Y', $t);
+    $gm = (int)date('n', $t);
+    $gd = (int)date('j', $t);
+    [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
+    $datePart = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+    $timePart = date('H:i', $t);
+    return $datePart . ' ' . $timePart; // space between date and hour
+}
+
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -519,11 +557,15 @@ $count = count($participants);
                                   <?php endif; ?>
                                 </td>
                                 <td>
-                                  <?php
+                                  <?php 
+                                    $disp = '';
                                     if (!empty($row['created_at'])) {
-                                        echo htmlspecialchars(date('Y-m-d H:i', strtotime($row['created_at'])), ENT_QUOTES, 'UTF-8');
+                                        $disp = shamsi_datetime((string)$row['created_at']);
                                     } elseif (!empty($row['paid_at'])) {
-                                        echo htmlspecialchars(date('Y-m-d H:i', strtotime($row['paid_at'])), ENT_QUOTES, 'UTF-8');
+                                        $disp = shamsi_datetime((string)$row['paid_at']);
+                                    }
+                                    if ($disp !== '') {
+                                        echo htmlspecialchars($disp, ENT_QUOTES, 'UTF-8');
                                     } else {
                                         echo '<span class="muted">-</span>';
                                     }
