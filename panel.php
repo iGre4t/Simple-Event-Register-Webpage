@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 // Ensure UTF-8 output to avoid mojibake
 header('Content-Type: text/html; charset=UTF-8');
@@ -32,20 +32,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username']
         header('Location: panel.php');
         exit;
     } else {
-        $loginError = 'Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒØ§ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª';
+        $loginError = 'نام کاربری یا رمز عبور اشتباه است';
     }
 }
 
 // Convert Latin digits to Persian digits for UI display
 function fa_digits(string $value): string {
     static $map = [
-        '0' => '۰','1' => '۱','2' => '۲','3' => '۳','4' => '۴',
-        '5' => '۵','6' => '۶','7' => '۷','8' => '۸','9' => '۹'
+        '0' => '?','1' => '?','2' => '?','3' => '?','4' => '?',
+        '5' => '?','6' => '?','7' => '?','8' => '?','9' => '?'
     ];
     return strtr($value, $map);
 }
 
-// Normalize a mobile number to 11‑digit local format (e.g., 09000000000)
+// Normalize a mobile number to 11-digit local format (e.g., 09000000000)
 function mobile_local(string $raw): string {
     $d = preg_replace('/\D+/', '', $raw);
     if ($d === null) { $d = ''; }
@@ -66,7 +66,7 @@ function mobile_local(string $raw): string {
     return $d;
 }
 
-// Human‑readable display: +98 9xx xxx xxxx (from a raw input)
+// Human-readable display: +98 9xx xxx xxxx (from a raw input)
 function mobile_display(string $raw): string {
     $local = mobile_local($raw);
     if (strlen($local) === 11 && $local[0] === '0') {
@@ -166,7 +166,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>پنل ثبت نام مسابقات - ÙˆØ±ÙˆØ¯</title>
+        <title>??? ??? ??? ??????? - ورود</title>
         <link rel="stylesheet" href="css/style.css">
         <style>
             .login-card { max-width: 420px; }
@@ -183,15 +183,15 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
-                <h1 class="title">ÙˆØ±ÙˆØ¯ Ø¨Ù‡ پنل ثبت نام مسابقات</h1>
-                <p class="sub">Ù„Ø·ÙØ§ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ùˆ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯.</p>
+                <h1 class="title">ورود به ??? ??? ??? ???????</h1>
+                <p class="sub">لطفا نام کاربری و رمز عبور را وارد کنید.</p>
                 <?php if ($loginError !== ''): ?><div class="error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                <label for="username">Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ</label>
+                <label for="username">نام کاربری</label>
                 <input class="ctrl" type="text" id="username" name="username" required placeholder="admin" autocomplete="username" />
-                <label for="password" style="margin-top:12px">Ø±Ù…Ø² Ø¹Ø¨ÙˆØ±</label>
-                <input class="ctrl" type="password" id="password" name="password" required placeholder="â€¢â€¢â€¢â€¢â€¢" autocomplete="current-password" />
-                <button class="btn" type="submit" style="margin-top:16px">ÙˆØ±ÙˆØ¯</button>
-                <footer>Ù¾Ù†Ù„ Ø³Ø§Ø¯Ù‡ Ù…Ø¯ÛŒØ±ÛŒØª Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒÙ‡Ø§</footer>
+                <label for="password" style="margin-top:12px">رمز عبور</label>
+                <input class="ctrl" type="password" id="password" name="password" required placeholder="•••••" autocomplete="current-password" />
+                <button class="btn" type="submit" style="margin-top:16px">ورود</button>
+                <footer>پنل ساده مدیریت شرکت‌کننده‌ها</footer>
             </form>
         </div>
     </body>
@@ -241,7 +241,7 @@ $count = count($participants);
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>پنل ثبت نام مسابقات</title>
+    <title>??? ??? ??? ???????</title>
     <link rel="stylesheet" href="css/style.css">
     <!-- Persian datepicker assets for admin panel -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
@@ -304,83 +304,83 @@ $count = count($participants);
 <body>
     <div class="app">
         <aside class="sidebar">
-            <h2 class="side-title">پنل ثبت نام مسابقات</h2>
+            <h2 class="side-title">??? ??? ??? ???????</h2>
             <nav class="side-nav">
-                <a href="#participants" class="active">لیست ثبت نامی ها</a>
+                <a href="#participants" class="active">???? ??? ???? ??</a>
             </nav>
             <div class="side-bottom">
-                <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
+                <a class="side-nav__link logout" href="panel.php?logout=1">???? ?? ????</a>
             </div>
         </aside>
         <main class="content">
             <div class="card">
                 <div class="header-row">
-                    <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
+                    <h1 class="title" style="margin:0">???? ??? ???? ??</h1>
                     <div class="count-box">
-                        <span>تعداد ثبت نامی ها</span>
+                        <span>????? ??? ???? ??</span>
                         <b><?php echo fa_digits(number_format($count)); ?></b>
                     </div>
                 </div>
                 <!--
-                <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
+                <div class="csv-hint">??????? ?? ???????? CSV ?? ???? <code>storage</code> ?????? ??????: <code>1 tickets.csv</code> ?? <code>4 tickets.csv</code>. ???? ???? ?? �????? ???� ? ????? ???? ?? �????? ??????� ?????? ??????.</div>
                 -->
                 <div class="filters">
                     <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو ">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="????? ">
                         <select class="ctrl" name="sort">
-                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
-                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>بر اساس تاریخ اولین تا آخرین</option>
-                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>بر اساس اسم</option>
-                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>بر اساس تلفن همراه</option>
+                            <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>?? ???? ????? ????? ?? ?????</option>
+                            <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>?? ???? ????? ????? ?? ?????</option>
+                            <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>?? ???? ???</option>
+                            <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>?? ???? ???? ?????</option>
                         </select>
-                        <button class="btn" style="width:auto; padding:10px 14px">فیلتر کردن</button>
+                        <button class="btn" style="width:auto; padding:10px 14px">????? ????</button>
                     </form>
                     <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
                         <select class="ctrl" name="tickets">
-                            <option value="">فیلتر تعداد سهم</option>
-                            <option value="1">1 سهم</option>
-                            <option value="2">2 سهم</option>
-                            <option value="3">3 سهم</option>
-                            <option value="4">4 سهم</option>
+                            <option value="">????? ????? ???</option>
+                            <option value="1">1 ???</option>
+                            <option value="2">2 ???</option>
+                            <option value="3">3 ???</option>
+                            <option value="4">4 ???</option>
                         </select>
-                        <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
-                        <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
-                        <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
+                        <input class="ctrl" type="date" name="from" placeholder="از تاریخ">
+                        <input class="ctrl" type="date" name="to" placeholder="تا تاریخ">
+                        <button class="btn" style="width:auto; padding:10px 14px">????? CSV</button>
                     </form>
                 </div>
                 <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-                    <span class="muted" id="bulkCount">0 مورد انتخاب شده</span>
+                    <span class="muted" id="bulkCount">0 ???? ?????? ???</span>
                     <select class="ctrl" id="bulkAction" style="max-width:200px;">
-                        <option value="">اقدام گروهی</option>
-                        <option value="archive">آرشیو</option>
-                        <option value="delete">حذف کامل</option>
+                        <option value="">????? ?????</option>
+                        <option value="archive">?????</option>
+                        <option value="delete">??? ????</option>
                     </select>
-                    <button type="button" class="btn btn-minimal" id="bulkApply" disabled>اعمال</button>
+                    <button type="button" class="btn btn-minimal" id="bulkApply" disabled>?????</button>
                 </div>
                 <div style="overflow:auto; margin-top:12px;">
                     <table>
                         <thead>
                             <tr>
                                 <th style="width:40px"></th>
-                                <th>ثبت نامی</th>
-                                <th>تلفن همراه</th>
-                                <th>تعداد سهم</th>
-                                <th>پرداخت شده</th>
-                                <th>کد رهگیری داخلی</th>
-                                <th>کد رهگیری زرین پال</th>
-                                <th>تاریخ ثبت نام</th>
+                                <th>??? ????</th>
+                                <th>???? ?????</th>
+                                <th>????? ???</th>
+                                <th>?????? ???</th>
+                                <th>?? ?????? ?????</th>
+                                <th>?? ?????? ???? ???</th>
+                                <th>????? ??? ???</th>
                             </tr>
                         </thead>
                         <tbody id="rowsBody">
                         <?php if (empty($participants)): ?>
                             <tr>
-                                <td colspan="5" class="muted">Ù‡Ù†ÙˆØ² Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒØ§ÛŒ Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.</td>
+                                <td colspan="5" class="muted">هنوز شرکت‌کننده‌ای ثبت نشده است.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($participants as $row): ?>
                             <tr>
                                 <td>
-                                  <span class="copy" data-copy="<?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید">
+                                  <span class="copy" data-copy="<?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?>" title="???? ??? ???? ????">
                                     <?php echo htmlspecialchars($row['fullname'], ENT_QUOTES, 'UTF-8'); ?>
                                   </span>
                                 </td>
@@ -389,16 +389,16 @@ $count = count($participants);
                                     $mDisp = mobile_display((string)($row['mobile'] ?? ''));
                                     $mCopy = mobile_local((string)($row['mobile'] ?? ''));
                                   ?>
-                                  <span class="copy" data-copy="<?php echo htmlspecialchars($mCopy, ENT_QUOTES, 'UTF-8'); ?>" title="کپی شماره ۱۱ رقمی">
+                                  <span class="copy" data-copy="<?php echo htmlspecialchars($mCopy, ENT_QUOTES, 'UTF-8'); ?>" title="??? ????? ?? ????">
                                     <?php echo htmlspecialchars($mDisp, ENT_QUOTES, 'UTF-8'); ?>
                                   </span>
                                 </td>
                                 <td><?php echo (int)$row['tickets']; ?></td>
                                 <td><?php echo number_format((int)$row['total']); ?></td>
-                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
                                 <td>
                                   <?php if (!empty($row['ref_id'])): ?>
-                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="Ú©Ù¾ÛŒ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="کپی رهگیری زرین‌پال"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
                                   <?php else: ?>
                                     <span class="muted">-</span>
                                   <?php endif; ?>
@@ -432,7 +432,7 @@ $count = count($participants);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(val).then(function(){
             var old = el.textContent;
-            el.textContent = 'ذخیره شد';
+            el.textContent = '????? ??';
             setTimeout(function(){ el.textContent = old; }, 1000);
           });
         }
@@ -445,17 +445,43 @@ $count = count($participants);
           var from = exp.querySelector('input[name="from"]');
           var to = exp.querySelector('input[name="to"]');
           if(from && to && from.value && to.value && new Date(from.value) > new Date(to.value)){
-            ev.preventDefault(); alert('تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.');
+            ev.preventDefault(); alert('????? ???? ????????? ??? ?? ????? ????? ????.');
           }
         });
       })();
     </script>
     <script>
       (function(){
+        // Modern async confirm modal
+        function confirmModal(opts){
+          return new Promise(function(resolve){
+            var options = opts || {}; var text = options.text || '??? ????? ??????';
+            var title = options.title || '????? ??????';
+            var danger = !!options.danger; var okText = options.okText || '?????'; var cancelText = options.cancelText || '??????';
+            var overlay = document.createElement('div'); overlay.className = 'modal-overlay show';
+            overlay.innerHTML = '<div class="modal-box" role="dialog" aria-modal="true">'
+              + '<h3 class="modal-title">'+title+'</h3>'
+              + '<p class="modal-text">'+text+'</p>'
+              + '<div class="modal-actions">'
+              +   '<button type="button" class="btn btn-outline">'+cancelText+'</button>'
+              +   '<button type="button" class="btn '+(danger?'btn-danger':'')+'">'+okText+'</button>'
+              + '</div>'
+              + '</div>';
+            document.body.appendChild(overlay);
+            var btnCancel = overlay.querySelector('.btn-outline');
+            var btnOk = overlay.querySelector('.btn:not(.btn-outline)');
+            function close(v){ try{ document.body.removeChild(overlay); }catch(e){} resolve(v); }
+            btnCancel.addEventListener('click', function(){ close(false); });
+            btnOk.addEventListener('click', function(){ close(true); });
+            overlay.addEventListener('click', function(ev){ if(ev.target === overlay){ close(false); } });
+            function onKey(ev){ if(ev.key==='Escape'){ ev.preventDefault(); close(false); } if(ev.key==='Enter'){ ev.preventDefault(); close(true); } }
+            document.addEventListener('keydown', onKey, {once:true});
+          });
+        }
         // JS helpers to render Persian digits in the UI
         function toFaDigits(str){
           if(!str) return str;
-          return String(str).replace(/\d/g, function(d){ return '۰۱۲۳۴۵۶۷۸۹'.charAt(parseInt(d,10)); });
+          return String(str).replace(/\d/g, function(d){ return '??????????'.charAt(parseInt(d,10)); });
         }
         function convertTreeToFa(root){
           if(!root) return;
@@ -483,10 +509,10 @@ $count = count($participants);
           if(!oldFrom || !oldTo) return; // already enhanced
           var hFrom = document.createElement('input'); hFrom.type='hidden'; hFrom.name='from';
           var hTo   = document.createElement('input'); hTo.type='hidden';   hTo.name='to';
-          var lFrom = document.createElement('label'); lFrom.htmlFor='from_sh'; lFrom.textContent='تاریخ شروع'; lFrom.style.fontWeight='700';
-          var vFrom = document.createElement('input'); vFrom.type='text'; vFrom.id='from_sh'; vFrom.name='from_sh'; vFrom.className='ctrl shamsi'; vFrom.placeholder='مثال: ۱۴۰۳/۰۸/۱۱'; vFrom.autocomplete='off'; vFrom.setAttribute('inputmode','numeric');
-          var lTo   = document.createElement('label'); lTo.htmlFor='to_sh';   lTo.textContent='تاریخ پایان'; lTo.style.fontWeight='700';
-          var vTo   = document.createElement('input'); vTo.type='text'; vTo.id='to_sh';   vTo.name='to_sh';   vTo.className='ctrl shamsi'; vTo.placeholder='مثال: ۱۴۰۳/۰۸/۱۲'; vTo.autocomplete='off'; vTo.setAttribute('inputmode','numeric');
+          var lFrom = document.createElement('label'); lFrom.htmlFor='from_sh'; lFrom.textContent='????? ????'; lFrom.style.fontWeight='700';
+          var vFrom = document.createElement('input'); vFrom.type='text'; vFrom.id='from_sh'; vFrom.name='from_sh'; vFrom.className='ctrl shamsi'; vFrom.placeholder='????: ????/??/??'; vFrom.autocomplete='off'; vFrom.setAttribute('inputmode','numeric');
+          var lTo   = document.createElement('label'); lTo.htmlFor='to_sh';   lTo.textContent='????? ?????'; lTo.style.fontWeight='700';
+          var vTo   = document.createElement('input'); vTo.type='text'; vTo.id='to_sh';   vTo.name='to_sh';   vTo.className='ctrl shamsi'; vTo.placeholder='????: ????/??/??'; vTo.autocomplete='off'; vTo.setAttribute('inputmode','numeric');
           formExport.insertBefore(lFrom, oldFrom);
           formExport.insertBefore(vFrom, oldFrom);
           formExport.insertBefore(hFrom, oldFrom);
@@ -568,12 +594,12 @@ $count = count($participants);
           var btns = document.querySelectorAll('button[data-archive]');
           btns.forEach(function(b){
             b.classList.add('btn-minimal','btn-red','btn-sm');
-            b.innerHTML = '<i data-feather="archive"></i><span>آرشیو</span>';
+            b.innerHTML = '<i data-feather="archive"></i><span>?????</span>';
           });
           try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
         }
         async function refresh(){
-          if(!validDates()){ tbody.innerHTML = '<tr><td colspan="8" class="muted">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</td></tr>'; return; }
+          if(!validDates()){ tbody.innerHTML = '<tr><td colspan="8" class="muted">????? ???? ????????? ??? ?? ????? ????? ????.</td></tr>'; return; }
           var res = await fetch('panel_data.php?' + params().toString(), {cache:'no-store'});
           var j = await res.json();
           if(j && j.ok){
@@ -641,16 +667,16 @@ $count = count($participants);
         } catch(e){}
 
         // Add export Excel button
-        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn btn-minimal'; xBtn.style.cssText=''; xBtn.textContent='خروجی Excel';
+        var xBtn = document.createElement('button'); xBtn.type='button'; xBtn.className='btn btn-minimal'; xBtn.style.cssText=''; xBtn.textContent='????? Excel';
         formExport.appendChild(xBtn);
         function openExport(url){ window.location.href = url + '?' + params().toString(); }
         xBtn.addEventListener('click', function(){ openExport('export_excel.php'); });
         // Enhance export buttons with icons and unify style
-        try { if (xBtn) { xBtn.innerHTML = '<i data-feather="download"></i><span>خروجی Excel</span>'; } } catch(e){}
+        try { if (xBtn) { xBtn.innerHTML = '<i data-feather="download"></i><span>????? Excel</span>'; } } catch(e){}
         var csvBtn = formExport.querySelector('button[type="submit"], button.btn');
         if (csvBtn) {
           csvBtn.classList.add('btn-minimal');
-          csvBtn.innerHTML = '<i data-feather="download"></i><span>خروجی CSV</span>';
+          csvBtn.innerHTML = '<i data-feather="download"></i><span>????? CSV</span>';
         }
         try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
 
@@ -658,22 +684,20 @@ $count = count($participants);
         document.addEventListener('click', async function(e){
           var btn = e.target.closest('button[data-archive]');
           if(!btn) return;
-          var tag = btn.getAttribute('data-archive');
-          if(!confirm('این مورد به آرشیو منتقل شود؟')) return;
+          var tag = btn.getAttribute('data-archive');\n          var okArchive = await confirmModal({title:'?????', text:'??? ???? ????? ????', okText:'?????', cancelText:'??????'});\n          if(!okArchive) return;
           var fd = new FormData(); fd.set('action','archive'); fd.set('tag', tag);
           var r = await fetch('panel_data.php', {method:'POST', body: fd});
-          var j = await r.json(); if(j && j.ok) refresh(); else alert('خطا در آرشیو');
+          var j = await r.json(); if(j && j.ok) refresh(); else alert('??? ?? ?????');
         });
 
         // Delete (single)
         document.addEventListener('click', async function(e){
           var btn = e.target.closest('button[data-delete]');
           if(!btn) return;
-          var tag = btn.getAttribute('data-delete');
-          if(!confirm('حذف کامل این مورد انجام شود؟')) return;
+          var tag = btn.getAttribute('data-delete');\n          var okDelete = await confirmModal({title:'??? ????', text:'??? ???? ??? ???? ????? ????', okText:'???', cancelText:'??????', danger:true});\n          if(!okDelete) return;
           var fd = new FormData(); fd.set('action','delete'); fd.set('tag', tag);
           var r = await fetch('panel_data.php', {method:'POST', body: fd});
-          var j = await r.json(); if(j && j.ok) refresh(); else alert('خطا در حذف');
+          var j = await r.json(); if(j && j.ok) refresh(); else alert('??? ?? ???');
         });
 
         function ensureHeaderExtras(){
@@ -695,7 +719,7 @@ $count = count($participants);
 
         function decorateActionExtras(){
           var del = document.querySelectorAll('button[data-delete]');
-          del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>حذف</span>'; });
+          del.forEach(function(b){ b.classList.add('btn-minimal'); b.innerHTML = '<i data-feather="trash-2"></i><span>???</span>'; });
           try { if (window.feather) { feather.replace({width:16,height:16}); } } catch(e){}
         }
 
@@ -705,7 +729,7 @@ $count = count($participants);
         function updateBulkState(){
           var tags = selectedTags();
           var c = document.getElementById('bulkCount'); var btn = document.getElementById('bulkApply');
-          if (c) c.textContent = (tags.length||0) + ' مورد انتخاب شده';
+          if (c) c.textContent = (tags.length||0) + ' ???? ?????? ???';
           var sel = document.getElementById('bulkAction');
           if (btn) btn.disabled = tags.length===0 || !(sel && sel.value);
         }
@@ -715,18 +739,18 @@ $count = count($participants);
         if (bulkBtn) bulkBtn.addEventListener('click', async function(){
           var actSel = document.getElementById('bulkAction'); var doWhat = actSel ? actSel.value : '';
           var tags = selectedTags(); if (!doWhat || tags.length===0) return;
-          if (doWhat==='delete' && !confirm('حذف کامل موارد انتخاب‌شده انجام شود؟')) return;
-          if (doWhat==='archive' && !confirm('موارد انتخاب‌شده آرشیو شوند؟')) return;
+          if (doWhat==='delete' && !(await confirmModal({title:'??? ?????', text:'??? ???? ????? ?????????? ????? ????', okText:'???', cancelText:'??????', danger:true}))) return;
+          if (doWhat==='archive' && !(await confirmModal({title:'????? ?????', text:'????? ?????????? ????? ?????', okText:'?????', cancelText:'??????'}))) return;
           var fd = new FormData(); fd.set('action','bulk'); fd.set('do', doWhat); tags.forEach(function(t){ fd.append('tags[]', t); });
           var r = await fetch('panel_data.php', {method:'POST', body: fd});
-          var j = await r.json(); if(j && j.ok){ refresh(); } else { alert('خطا در اجرای عملیات گروهی'); }
+          var j = await r.json(); if(j && j.ok){ refresh(); } else { alert('??? ?? ????? ?????? ?????'); }
         });
 
         function ensureHeader(){
           var thead = document.querySelector('table thead tr');
           if(!thead) return;
-          var hasTools = Array.from(thead.children).some(function(th){ var s=(th.textContent||'').trim(); return s==='ابزار' || s==='اقدامات'; });
-          if(!hasTools){ var th=document.createElement('th'); th.textContent='ابزار'; thead.appendChild(th); }
+          var hasTools = Array.from(thead.children).some(function(th){ var s=(th.textContent||'').trim(); return s==='?????' || s==='???????'; });
+          if(!hasTools){ var th=document.createElement('th'); th.textContent='?????'; thead.appendChild(th); }
         }
         ensureHeader();
         convertTreeToFa(document.body);
