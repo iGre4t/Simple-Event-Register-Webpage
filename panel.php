@@ -326,7 +326,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
             $sharesSaveErr = '??? ?? ?????????? ?????? ???? ?? (share_config.php). ???? ????? ?? ????? ????.';
         } else {
             $sharesConfig = $new;
-            $sharesSaveMsg = '???????? ???? ?? ???? ?????? ????.';
+            $sharesSaveMsg = 'قیمت سهم‌ها با موفقیت ذخیره شد';
         }
     }
 }
@@ -475,8 +475,8 @@ $count = count($participants);
                 </div>
             </div>
             <nav class="side-nav">
-                <a href="#share-settings">????????? ???? ??</a>
-                <a href="#share-settings"><i data-feather="dollar-sign"></i><span>????????? ???? ??</span></a>
+                <a href="#share-settings">تنظیمات سهم ها</a>
+                <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
@@ -526,7 +526,7 @@ $count = count($participants);
                 </form>
             </div>
             <div id="share-settings" class="card tab-section" style="margin-bottom:16px;">
-                <h2 class="title" style="margin-top:0">????????? ???? ??</h2>
+                <h2 class="title" style="margin-top:0">تنظیمات سهم ها</h2>
                 <?php if ($sharesSaveMsg !== ''): ?>
                     <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
                         <?php echo htmlspecialchars($sharesSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
@@ -548,7 +548,7 @@ $count = count($participants);
                     <label for="share_price_4" style="font-weight:700;">????? 4 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_4" name="share_price_4" value="<?php echo htmlspecialchars((string)($sharesConfig[4] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
-                        <button class="btn" type="submit">????? ????????? ???? ??</button>
+                        <button class="btn" type="submit">????? ثبت</button>
                     </div>
                 </form>
             </div>
