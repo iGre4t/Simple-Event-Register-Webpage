@@ -518,5 +518,130 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     updateTotal();
   });
 </script>
+<script>
+(function(){
+  var form = document.getElementById('regForm');
+  var mobileInput = document.getElementById('mobile');
+  var mobileError = document.getElementById('mobileError');
+  var checkInProgress = false;
+  var mobileTaken = false;
+  var latestDigits = '';
+
+  if (!form || !mobileInput) {
+    return;
+  }
+
+  function getMobileDigitsAjax(){
+    var raw = mobileInput.value || '';
+    if (typeof toEnglishDigits === 'function') {
+      raw = toEnglishDigits(raw);
+    }
+    var digits = raw.replace(/\D/g, '');
+    if (digits.length > 11) {
+      digits = digits.slice(0, 11);
+    }
+    return digits;
+  }
+
+  function ensureMobileErrorElement(){
+    if (!mobileError) {
+      mobileError = document.getElementById('mobileError');
+    }
+    if (!mobileError) {
+      mobileError = document.createElement('div');
+      mobileError.id = 'mobileError';
+      mobileError.className = 'error-hint';
+      mobileError.hidden = true;
+      var field = mobileInput.closest('.field');
+      if (field) {
+        field.appendChild(mobileError);
+      }
+    }
+    return mobileError;
+  }
+
+  function showDuplicateError(){
+    var errEl = ensureMobileErrorElement();
+    errEl.textContent = 'این شماره تلفن قبلا ثبت شده است و امکان ثبت نام مجدد با این شماره وجود ندارد.';
+    errEl.hidden = false;
+    var wrap = mobileInput.closest('.input-wrap');
+    if (wrap) {
+      wrap.classList.add('invalid');
+    }
+  }
+
+  function hideDuplicateError(){
+    if (mobileError) {
+      mobileError.hidden = true;
+    }
+  }
+
+  function checkMobileDuplicateAjax(){
+    var digits = getMobileDigitsAjax();
+    var valid = /^09\d{9}$/.test(digits);
+    if (!valid) {
+      mobileTaken = false;
+      checkInProgress = false;
+      latestDigits = '';
+      hideDuplicateError();
+      return;
+    }
+    if (digits === latestDigits) {
+      return;
+    }
+    latestDigits = digits;
+    checkInProgress = true;
+    fetch('check_mobile.php?mobile=' + encodeURIComponent(digits), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if (digits !== latestDigits) {
+          return;
+        }
+        checkInProgress = false;
+        if (data && data.ok && data.exists) {
+          mobileTaken = true;
+          showDuplicateError();
+        } else {
+          mobileTaken = false;
+          hideDuplicateError();
+        }
+      })
+      .catch(function(){
+        if (digits !== latestDigits) {
+          return;
+        }
+        checkInProgress = false;
+        mobileTaken = false;
+      });
+  }
+
+  mobileInput.addEventListener('input', function(){
+    mobileTaken = false;
+    checkInProgress = false;
+    latestDigits = '';
+    hideDuplicateError();
+    checkMobileDuplicateAjax();
+  });
+
+  mobileInput.addEventListener('blur', function(){
+    checkMobileDuplicateAjax();
+  });
+
+  form.addEventListener('submit', function(e){
+    if (checkInProgress) {
+      e.preventDefault();
+      alert('لطفا تا پایان بررسی شماره تلفن صبر کنید.');
+      return;
+    }
+    if (mobileTaken) {
+      e.preventDefault();
+      alert('این شماره تلفن قبلا ثبت شده است و امکان ثبت نام مجدد با این شماره وجود ندارد.');
+    }
+  }, true);
+})();
+</script>
 </body>
 </html>
