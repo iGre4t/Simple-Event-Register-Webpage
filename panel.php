@@ -285,6 +285,70 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
     }
 }
 
+// Logged in: handle settings for share prices (1..4 shares)
+$shareSaveMsg = '';
+$shareSaveErr = '';
+$shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+$shareConfig = [];
+if (is_readable($shareConfigPath)) {
+    $tmp = require $shareConfigPath;
+    if (is_array($tmp)) { $shareConfig = $tmp; }
+}
+
+// Defaults in case config file does not exist yet
+$shareDefaults = [
+    1 => 100000, // price for 1 share (IRR)
+    2 => 200000, // price for 2 shares (IRR)
+    3 => 300000, // price for 3 shares (IRR)
+    4 => 400000, // price for 4 shares (IRR)
+];
+
+if (!is_array($shareConfig)) {
+    $shareConfig = [];
+}
+
+// Merge defaults with existing config
+foreach ($shareDefaults as $k => $v) {
+    $key = 'price_' . $k;
+    if (!isset($shareConfig[$key]) || !is_int($shareConfig[$key]) || $shareConfig[$key] <= 0) {
+        $shareConfig[$key] = $v;
+    }
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_shares') {
+    $new = [];
+    $hasError = false;
+    foreach ([1, 2, 3, 4] as $n) {
+        $field = 'price_' . $n;
+        $raw = (string)($_POST[$field] ?? '');
+        $digits = preg_replace('/\D+/', '', $raw);
+        if ($digits === null) { $digits = ''; }
+        $val = $digits === '' ? 0 : (int)$digits;
+        if ($val <= 0) {
+            $hasError = true;
+        } else {
+            $new[$field] = $val;
+        }
+    }
+    if ($hasError || count($new) !== 4) {
+        $shareSaveErr = '???? ?? ???? ??? ?????? ?????? ?? ????? ????? ??????.';
+    } else {
+        $cfg = $shareConfig;
+        foreach ($new as $k => $v) {
+            $cfg[$k] = $v;
+        }
+        $export = var_export($cfg, true);
+        $php = "<?php\nreturn " . $export . ";\n";
+        $ok = @file_put_contents($shareConfigPath, $php);
+        if ($ok === false) {
+            $shareSaveErr = '??? ?? ?????????? ???? ??????? ??? (share_config.php). ???? ????? ?? ????? ????.';
+        } else {
+            $shareConfig = $cfg;
+            $shareSaveMsg = '??????? ?????? ???? ?? ?????? ????? ??.';
+        }
+    }
+}
+
 // Logged in: compute data for participants tab
 $participants = read_participants();
 $countTotal = count($participants);
@@ -433,6 +497,12 @@ $count = count($participants);
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
             </nav>
+            <nav class="side-nav">
+                <a href="#share-settings"><i data-feather="hash"></i><span>تنظیمات سهم ها</span></a>
+            </nav>
+            <nav class="side-nav">
+                <a href="#share-settings">تنظیمات سهم ها</a>
+            </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1" style="display:flex; align-items:center; gap:10px;">
                     <i data-feather="log-out"></i><span>خروج از حساب</span>
@@ -477,6 +547,35 @@ $count = count($participants);
                     <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <label for="smsir_admin2" style="font-weight:700;">????? ????? ????? (2)</label>
                     <input class="ctrl" type="text" id="smsir_admin2" name="smsir_admin2" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile_2'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                </form>
+            </div>
+            <!-- Share price settings -->
+            <div id="share-settings" class="card" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">تنظیمات سهم ها</h2>
+                <?php if ($shareSaveMsg !== ''): ?>
+                    <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($shareSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($shareSaveErr !== ''): ?>
+                    <div class="tag" style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($shareSaveErr, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="panel.php#share-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <input type="hidden" name="action" value="save_shares" />
+                    <p class="muted" style="margin:0 0 8px;">مقادیر را بر حسب ریال (IRR) وارد کنید.</p>
+                    <label for="price_1" style="font-weight:700;">قیمت ۱ سهم</label>
+                    <input class="ctrl" type="text" id="price_1" name="price_1" inputmode="numeric" value="<?php echo htmlspecialchars((string)($shareConfig['price_1'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="price_2" style="font-weight:700;">قیمت ۲ سهم</label>
+                    <input class="ctrl" type="text" id="price_2" name="price_2" inputmode="numeric" value="<?php echo htmlspecialchars((string)($shareConfig['price_2'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="price_3" style="font-weight:700;">قیمت ۳ سهم</label>
+                    <input class="ctrl" type="text" id="price_3" name="price_3" inputmode="numeric" value="<?php echo htmlspecialchars((string)($shareConfig['price_3'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="price_4" style="font-weight:700;">قیمت ۴ سهم</label>
+                    <input class="ctrl" type="text" id="price_4" name="price_4" inputmode="numeric" value="<?php echo htmlspecialchars((string)($shareConfig['price_4'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <div>
+                        <button class="btn" type="submit">ذخیره تنظیمات سهم ها</button>
+                    </div>
                 </form>
             </div>
             <div id="participants" class="card tab-section active">

@@ -2,6 +2,32 @@
 // ------- تنظیمات ساده -------
 $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
 ?>
+<?php
+// تنظیم پیکربندی قیمت سهم‌ها (مبتنی بر share_config.php)
+$shareDefaults = [
+    1 => $TICKET_PRICE,
+    2 => $TICKET_PRICE * 2,
+    3 => $TICKET_PRICE * 3,
+    4 => $TICKET_PRICE * 4,
+];
+
+$shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+$sharePrices = $shareDefaults;
+if (is_readable($shareConfigPath)) {
+    $tmp = require $shareConfigPath;
+    if (is_array($tmp)) {
+        foreach ([1, 2, 3, 4] as $n) {
+            $key = 'price_' . $n;
+            if (isset($tmp[$key]) && (int)$tmp[$key] > 0) {
+                $sharePrices[$n] = (int)$tmp[$key];
+            }
+        }
+    }
+}
+
+// به‌روزرسانی قیمت واحد بر اساس ۱ سهم
+$TICKET_PRICE = $sharePrices[1];
+?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -342,7 +368,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   </div>
 
   <script>
-  const UNIT = <?php echo (int)$TICKET_PRICE; ?>;
+  const SHARE_PRICES = <?php echo json_encode($sharePrices, JSON_UNESCAPED_UNICODE); ?>;
 
   const $qty = document.getElementById('qty');
   const $fullname = document.getElementById('fullname');
@@ -382,7 +408,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   }
   function updateTotal(){
     const q = parseInt($qty.value || '1',10);
-    const total = q * UNIT;
+    const total = SHARE_PRICES[String(q)] ?? SHARE_PRICES[1];
     $totalText.textContent = formatRial(total);
     $totalPrice.value = total;
   }

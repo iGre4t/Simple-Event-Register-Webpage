@@ -28,7 +28,6 @@ if (preg_match('/^09\d{9}$/', $mobileLocal)) {
     $mobileLocal = substr($mobileLocal, 1); // strip leading 0 -> 9XXXXXXXXX
 }
 $qty = (int)($_POST['qty'] ?? 0);
-$unitPrice = (int)($_POST['unit_price'] ?? 0);
 
 if ($fullname === '' || $mobileLocal === '' || !preg_match('/^9\d{9}$/', $mobileLocal)) {
     fail_redirect('invalid_input');
@@ -38,11 +37,30 @@ if ($qty < 1 || $qty > 4) {
     fail_redirect('invalid_quantity');
 }
 
-if ($unitPrice <= 0) {
-    fail_redirect('invalid_price');
+// Determine expected total based on server-side share configuration
+$basePrice = 100000; // fallback unit price if config is missing
+$shareDefaults = [
+    1 => $basePrice,
+    2 => $basePrice * 2,
+    3 => $basePrice * 3,
+    4 => $basePrice * 4,
+];
+
+$shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+$sharePrices = $shareDefaults;
+if (is_readable($shareConfigPath)) {
+    $tmp = require $shareConfigPath;
+    if (is_array($tmp)) {
+        foreach ([1, 2, 3, 4] as $n) {
+            $key = 'price_' . $n;
+            if (isset($tmp[$key]) && (int)$tmp[$key] > 0) {
+                $sharePrices[$n] = (int)$tmp[$key];
+            }
+        }
+    }
 }
 
-$totalExpected = $unitPrice * $qty; // IRR (Rial)
+$totalExpected = $sharePrices[$qty] ?? $sharePrices[1]; // IRR (Rial)
 $mobileFull = '+98' . $mobileLocal;
 
 // Storage for pending orders (keyed by Authority)
