@@ -281,6 +281,49 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
     }
 }
 
+// Logged in: handle settings save for Telegram admin account
+$telegramSaveMsg = '';
+$telegramSaveErr = '';
+$telegramConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'telegram_config.php';
+$telegramConfig = [];
+if (is_readable($telegramConfigPath)) {
+    $tmp = require $telegramConfigPath;
+    if (is_array($tmp)) {
+        $telegramConfig = $tmp;
+    }
+}
+// Ensure we always have default values for Telegram config
+if (!isset($telegramConfig['admin_chat_id']) || $telegramConfig['admin_chat_id'] === '') {
+    $telegramConfig['admin_chat_id'] = '6442613822';
+}
+if (!isset($telegramConfig['bot_token']) || $telegramConfig['bot_token'] === '') {
+    $telegramConfig['bot_token'] = '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM';
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_telegram_admin') {
+    $newAdminId = trim((string)($_POST['telegram_admin_chat_id'] ?? ''));
+    $newBotToken = trim((string)($_POST['telegram_bot_token'] ?? ''));
+    if ($newAdminId === '') {
+        $telegramSaveErr = 'شناسه کاربر تلگرام ادمین نمی\u200cتواند خالی باشد.';
+    } else {
+        $cfg = is_array($telegramConfig) ? $telegramConfig : [];
+        $cfg['admin_chat_id'] = $newAdminId;
+        if ($newBotToken !== '') {
+            $cfg['bot_token'] = $newBotToken;
+        }
+
+        $export = var_export($cfg, true);
+        $php = "<?php\nreturn " . $export . ";\n";
+        $ok = @file_put_contents($telegramConfigPath, $php);
+        if ($ok === false) {
+            $telegramSaveErr = 'خطا در ذخیره تنظیمات تلگرام (telegram_config.php). لطفاً سطح دسترسی را بررسی کنید.';
+        } else {
+            $telegramConfig = $cfg;
+            $telegramSaveMsg = 'تنظیمات اکانت تلگرام ادمین با موفقیت ذخیره شد.';
+        }
+    }
+}
+
 // Logged in: handle settings for share prices (1..4 shares)
 $sharesSaveMsg = '';
 $sharesSaveErr = '';
@@ -523,6 +566,27 @@ $count = count($participants);
                     </div>
                     <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
                     <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                </form>
+
+                <!-- Telegram admin account settings -->
+                <h2 class="title" style="margin-top:24px">اکانت تلگرام ادمین</h2>
+                <?php if ($telegramSaveMsg !== ''): ?>
+                    <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($telegramSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($telegramSaveErr !== ''): ?>
+                    <div class="tag" style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($telegramSaveErr, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="panel.php#notification-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <input type="hidden" name="action" value="save_telegram_admin" />
+                    <label for="telegram_admin_chat_id" style="font-weight:700;">USER ID (اکانت تلگرام ادمین)</label>
+                    <input class="ctrl" type="text" id="telegram_admin_chat_id" name="telegram_admin_chat_id" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)($telegramConfig['admin_chat_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <div>
+                        <button class="btn" type="submit">ذخیره اکانت تلگرام</button>
+                    </div>
                 </form>
             </div>
             <div id="share-settings" class="card tab-section" style="margin-bottom:16px;">

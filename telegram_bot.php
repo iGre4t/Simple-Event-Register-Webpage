@@ -1,14 +1,32 @@
 <?php
 // Simple Telegram Bot helper for admin notifications
 
+// Load Telegram admin chat/user ID from config (with safe default)
+$telegramConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'telegram_config.php';
+$telegramConfig = [];
+if (is_readable($telegramConfigPath)) {
+    $tmp = require $telegramConfigPath;
+    if (is_array($tmp)) {
+        $telegramConfig = $tmp;
+    }
+}
+
 // Bot token and admin chat id
 // Provided by user request
 if (!defined('TELEGRAM_BOT_TOKEN')) {
-    define('TELEGRAM_BOT_TOKEN', '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM');
+    $defaultToken = '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM';
+    if (isset($telegramConfig['bot_token']) && $telegramConfig['bot_token'] !== '') {
+        $defaultToken = (string)$telegramConfig['bot_token'];
+    }
+    define('TELEGRAM_BOT_TOKEN', $defaultToken);
 }
 if (!defined('TELEGRAM_ADMIN_CHAT_ID')) {
     // Admin user_id to receive messages
-    define('TELEGRAM_ADMIN_CHAT_ID', '6442613822');
+    $defaultAdminId = '6442613822';
+    if (isset($telegramConfig['admin_chat_id']) && $telegramConfig['admin_chat_id'] !== '') {
+        $defaultAdminId = (string)$telegramConfig['admin_chat_id'];
+    }
+    define('TELEGRAM_ADMIN_CHAT_ID', $defaultAdminId);
 }
 
 /**
