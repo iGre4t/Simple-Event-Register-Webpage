@@ -281,6 +281,56 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
     }
 }
 
+// Logged in: handle settings for share prices (1..4 shares)
+$sharesSaveMsg = '';
+$sharesSaveErr = '';
+$sharesConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+// Defaults match existing behavior: price = qty * 100000
+$sharesConfig = [
+    1 => 100000,
+    2 => 200000,
+    3 => 300000,
+    4 => 400000,
+];
+if (is_readable($sharesConfigPath)) {
+    $tmp = require $sharesConfigPath;
+    if (is_array($tmp)) {
+        foreach ($sharesConfig as $k => $v) {
+            if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
+                $sharesConfig[$k] = (int)$tmp[$k];
+            }
+        }
+    }
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_shares') {
+    $new = [];
+    for ($i = 1; $i <= 4; $i++) {
+        $field = 'share_price_' . $i;
+        $raw = isset($_POST[$field]) ? (string)$_POST[$field] : '';
+        // Keep only digits, so admins can type with commas or spaces
+        $digits = preg_replace('/\D+/', '', $raw);
+        if ($digits === null) { $digits = $raw; }
+        $val = (int)$digits;
+        if ($val <= 0) {
+            $sharesSaveErr = '????? ????? ???? ??? ?? ???? ?? ????? ???? ??????.';
+            break;
+        }
+        $new[$i] = $val;
+    }
+    if ($sharesSaveErr === '') {
+        $export = var_export($new, true);
+        $php = "<?php\nreturn " . $export . ";\n";
+        $ok = @file_put_contents($sharesConfigPath, $php);
+        if ($ok === false) {
+            $sharesSaveErr = '??? ?? ?????????? ?????? ???? ?? (share_config.php). ???? ????? ?? ????? ????.';
+        } else {
+            $sharesConfig = $new;
+            $sharesSaveMsg = '???????? ???? ?? ???? ?????? ????.';
+        }
+    }
+}
+
 // Logged in: compute data for participants tab
 $participants = read_participants();
 $countTotal = count($participants);
@@ -425,6 +475,8 @@ $count = count($participants);
                 </div>
             </div>
             <nav class="side-nav">
+                <a href="#share-settings">????????? ???? ??</a>
+                <a href="#share-settings"><i data-feather="dollar-sign"></i><span>????????? ???? ??</span></a>
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
@@ -471,6 +523,33 @@ $count = count($participants);
                     </div>
                     <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
                     <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                </form>
+            </div>
+            <div id="share-settings" class="card tab-section" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">????????? ???? ??</h2>
+                <?php if ($sharesSaveMsg !== ''): ?>
+                    <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($sharesSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($sharesSaveErr !== ''): ?>
+                    <div class="tag" style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($sharesSaveErr, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="panel.php#share-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <input type="hidden" name="action" value="save_shares" />
+                    <label for="share_price_1" style="font-weight:700;">????? 1 ???? (?????)</label>
+                    <input class="ctrl" type="number" min="1" step="1" id="share_price_1" name="share_price_1" value="<?php echo htmlspecialchars((string)($sharesConfig[1] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="share_price_2" style="font-weight:700;">????? 2 ???? (?????)</label>
+                    <input class="ctrl" type="number" min="1" step="1" id="share_price_2" name="share_price_2" value="<?php echo htmlspecialchars((string)($sharesConfig[2] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="share_price_3" style="font-weight:700;">????? 3 ???? (?????)</label>
+                    <input class="ctrl" type="number" min="1" step="1" id="share_price_3" name="share_price_3" value="<?php echo htmlspecialchars((string)($sharesConfig[3] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="share_price_4" style="font-weight:700;">????? 4 ???? (?????)</label>
+                    <input class="ctrl" type="number" min="1" step="1" id="share_price_4" name="share_price_4" value="<?php echo htmlspecialchars((string)($sharesConfig[4] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <div>
+                        <button class="btn" type="submit">????? ????????? ???? ??</button>
+                    </div>
                 </form>
             </div>
             <div id="participants" class="card tab-section active">

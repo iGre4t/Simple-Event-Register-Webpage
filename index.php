@@ -331,7 +331,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
         <span>مجموع قیمت</span>
         <b id="totalText">۰ ریال</b>
       </div>
-      <input type="hidden" name="unit_price" value="<?php echo (int)$TICKET_PRICE; ?>">
+      <input type="hidden" name="unit_price" id="unit_price" value="<?php echo (int)$TICKET_PRICE; ?>">
       <input type="hidden" name="total_price" id="total_price" value="">
 
       <!-- دکمه -->
@@ -341,13 +341,36 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     </form>
   </div>
 
+  <?php
+  // Load per-quantity share prices (1..4) from config for the client.
+  $shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+  $sharePrices = [
+      1 => 100000,
+      2 => 200000,
+      3 => 300000,
+      4 => 400000,
+  ];
+  if (is_readable($shareConfigPath)) {
+      $tmp = require $shareConfigPath;
+      if (is_array($tmp)) {
+          foreach ($sharePrices as $k => $v) {
+              if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
+                  $sharePrices[$k] = (int)$tmp[$k];
+              }
+          }
+      }
+  }
+  ?>
+
   <script>
-  const UNIT = <?php echo (int)$TICKET_PRICE; ?>;
+  const SHARE_PRICES = <?php echo json_encode($sharePrices, JSON_UNESCAPED_UNICODE); ?>;
+  const UNIT = <?php echo (int)$sharePrices[1]; ?>;
 
   const $qty = document.getElementById('qty');
   const $fullname = document.getElementById('fullname');
   const $totalText = document.getElementById('totalText');
   const $totalPrice = document.getElementById('total_price');
+  const $unitPrice = document.getElementById('unit_price');
   const $mobileLocal = document.getElementById('mobile');
   const $form = document.getElementById('regForm');
   const $submit = document.getElementById('submitBtn');
@@ -382,9 +405,20 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   }
   function updateTotal(){
     const q = parseInt($qty.value || '1',10);
-    const total = q * UNIT;
+    const map = SHARE_PRICES || {};
+    let total = 0;
+    if (Object.prototype.hasOwnProperty.call(map, q)) {
+      total = parseInt(map[q], 10) || 0;
+    }
+    if (!(total > 0)) {
+      total = q * UNIT;
+    }
+    const unit = Math.floor(total / Math.max(1, q));
     $totalText.textContent = formatRial(total);
     $totalPrice.value = total;
+    if ($unitPrice) {
+      $unitPrice.value = unit;
+    }
   }
   function toggleSubmit(mobileDigits){
     const digits = mobileDigits ?? sanitizeMobile();
