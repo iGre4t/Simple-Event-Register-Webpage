@@ -196,6 +196,58 @@ function read_participants(): array {
     return $all;
 }
 
+function read_archived(): array {
+    $file = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'archiev.csv';
+    $out = [];
+    if (!is_file($file)) { return $out; }
+    if (($fh = fopen($file, 'r')) === false) { return $out; }
+    $lineNo = 0; $header = []; $idx = [];
+    while (($row = fgetcsv($fh)) !== false) {
+        $lineNo++;
+        if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tickets') {
+            $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
+            $idx = array_flip($header);
+            continue;
+        }
+        if (!empty($header)) {
+            $rec = [
+                'tickets'   => (int)($row[$idx['tickets'] ?? -1] ?? 0),
+                'tag'       => (string)($row[$idx['tag'] ?? -1] ?? ''),
+                'fullname'  => (string)($row[$idx['fullname'] ?? -1] ?? ''),
+                'mobile'    => (string)($row[$idx['mobile'] ?? -1] ?? ''),
+                'total'     => (int)($row[$idx['total'] ?? -1] ?? 0),
+                'ref_id'    => (string)($row[$idx['ref_id'] ?? -1] ?? ''),
+                'created_at'=> (string)($row[$idx['created_at'] ?? -1] ?? ''),
+                'paid_at'   => (string)($row[$idx['paid_at'] ?? -1] ?? ''),
+                'authority' => (string)($row[$idx['authority'] ?? -1] ?? ''),
+            ];
+        } else {
+            $rec = [
+                'tickets'   => (int)($row[0] ?? 0),
+                'tag'       => (string)($row[1] ?? ''),
+                'fullname'  => (string)($row[2] ?? ''),
+                'mobile'    => (string)($row[3] ?? ''),
+                'total'     => (int)($row[4] ?? 0),
+                'ref_id'    => (string)($row[5] ?? ''),
+                'created_at'=> (string)($row[6] ?? ''),
+                'paid_at'   => (string)($row[7] ?? ''),
+                'authority' => (string)($row[8] ?? ''),
+            ];
+        }
+        $ts = 0;
+        foreach ([$rec['created_at'], $rec['paid_at']] as $d) {
+            if ($d) {
+                $t = strtotime($d);
+                if ($t) { $ts = $t; break; }
+            }
+        }
+        $rec['ts'] = $ts;
+        $out[] = $rec;
+    }
+    fclose($fh);
+    return $out;
+}
+
 // If not logged in, show login form
 if (!($_SESSION['is_admin'] ?? false)) {
     ?>
@@ -377,6 +429,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
 // Logged in: compute data for participants tab
 $participants = read_participants();
 $countTotal = count($participants);
+$shareCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
+$totalShares = 0;
+$participantsPaidTotal = 0;
+foreach ($participants as $rec) {
+    $tickets = (int)($rec['tickets'] ?? 0);
+    if ($tickets < 1 || $tickets > 4) { $tickets = 1; }
+    $shareCounts[$tickets] = ($shareCounts[$tickets] ?? 0) + 1;
+    $totalShares += $tickets;
+    $participantsPaidTotal += (int)($rec['total'] ?? 0);
+}
+$avgPaid = $countTotal > 0 ? (int)round($participantsPaidTotal / max($countTotal, 1)) : 0;
+$avgShares = $countTotal > 0 ? round($totalShares / max($countTotal, 1), 1) : 0;
+
+$archivedRows = read_archived();
+$archiveCount = count($archivedRows);
+$archivePaidTotal = 0;
+foreach ($archivedRows as $arch) {
+    $archivePaidTotal += (int)($arch['total'] ?? 0);
+}
+$overallRecords = $countTotal + $archiveCount;
+$activePercent = $overallRecords > 0 ? round(($countTotal / $overallRecords) * 100) : 0;
+$archivedPercent = $overallRecords > 0 ? 100 - $activePercent : 0;
 
 // Filters: search and sort
 $q = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
@@ -504,6 +578,46 @@ $count = count($participants);
         .side-bottom .logout { color: var(--brand); font-weight:700; text-decoration:none; }
         .side-bottom .logout:hover { color: var(--brand); background: transparent; }
         .side-brand .brand-avatar { background:#f1f5f9; color: var(--brand); }
+        #dashboard.card { display:flex; flex-direction:column; gap:24px; }
+        .dashboard-hero { display:flex; flex-wrap:wrap; gap:24px; padding:24px; border-radius:24px; background:linear-gradient(135deg, #0f172a, #c026d3); color:#fff; }
+        .dashboard-hero h1 { margin:0; font-size:28px; }
+        .dashboard-hero p { margin:0; color:rgba(255,255,255,0.85); }
+        .dashboard-hero .hero-figure { display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
+        .hero-ring { width:150px; aspect-ratio:1; border-radius:50%; background:conic-gradient(rgba(255,255,255,0.7) calc(var(--percent,0) * 1%), rgba(255,255,255,0.15) 0); position:relative; display:grid; place-items:center; }
+        .hero-ring::after { content:''; position:absolute; inset:18px; border-radius:50%; background:rgba(15,23,42,0.8); }
+        .hero-ring span { position:relative; font-size:24px; font-weight:800; }
+        .hero-ring small { position:relative; display:block; margin-top:6px; font-size:12px; color:#cbd5f5; }
+        .hero-figure .hero-meta { display:flex; flex-direction:column; gap:4px; min-width:180px; }
+        .hero-meta strong { font-size:26px; font-weight:800; }
+        .hero-meta small { font-size:12px; color:rgba(255,255,255,0.7); }
+        .metric-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
+        .metric-card { padding:20px; border-radius:18px; background:#f8fafc; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; }
+        .metric-card.accent { background:linear-gradient(140deg,#fed7aa,#fecaca); border-color:transparent; color:#7c2d12; }
+        .metric-card__label { font-size:13px; color:#64748b; }
+        .metric-card.accent .metric-card__label { color:#7c2d12; }
+        .metric-card__value { font-size:24px; font-weight:800; color:#0f172a; }
+        .metric-card.accent .metric-card__value { color:#7c2d12; }
+        .metric-card__sub { font-size:13px; color:#94a3b8; }
+        .metric-card.accent .metric-card__sub { color:#9a3412; }
+        .metric-card__spark { height:6px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; }
+        .metric-card__spark span { display:block; height:100%; width:var(--value,50%); background:linear-gradient(90deg,#6366f1,#ec4899); border-radius:inherit; }
+        .share-chart { padding:20px; border-radius:20px; background:#fff; border:1px solid #e2e8f0; }
+        .share-chart h3 { margin-top:0; margin-bottom:16px; font-size:18px; }
+        .share-bars { display:flex; flex-direction:column; gap:14px; }
+        .share-bar { display:grid; grid-template-columns:120px 1fr auto; gap:12px; align-items:center; }
+        .share-bar__label { font-weight:700; color:#0f172a; }
+        .share-bar__track { position:relative; height:10px; border-radius:999px; background:#f1f5f9; overflow:hidden; }
+        .share-bar__fill { position:absolute; inset:0; width:var(--bar,0%); background:linear-gradient(90deg,#10b981,#14b8a6); border-radius:inherit; }
+        .share-bar__value { font-weight:700; color:#0f172a; }
+        .share-bar__percent { font-size:12px; color:#94a3b8; }
+        .radial-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
+        .radial-card { padding:20px; border-radius:18px; border:1px solid #e2e8f0; background:#f9fafb; text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; }
+        .radial-progress { width:140px; aspect-ratio:1; border-radius:50%; background:conic-gradient(var(--accent, var(--brand)) calc(var(--percent,0) * 1%), #e2e8f0 0); position:relative; display:grid; place-items:center; }
+        .radial-progress::after { content:''; position:absolute; inset:18px; border-radius:50%; background:#fff; }
+        .radial-progress span { position:relative; font-size:22px; font-weight:800; color:#0f172a; }
+        .radial-progress small { position:relative; display:block; margin-top:4px; font-size:12px; color:#94a3b8; }
+        .radial-card strong { font-size:20px; color:#0f172a; }
+        .radial-card p { margin:0; font-size:13px; color:#94a3b8; }
     </style>
 </head>
 <body>
@@ -518,7 +632,8 @@ $count = count($participants);
                 </div>
             </div>
             <nav class="side-nav">
-                <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
+                <a href="#dashboard" class="active"><i data-feather="activity"></i><span>داشبورد</span></a>
+                <a href="#participants"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
                 <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
@@ -532,7 +647,8 @@ $count = count($participants);
         <aside class="sidebar">
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
-                <a href="#participants" class="active">لیست ثبت نامی ها</a>
+                <a href="#dashboard" class="active">داشبورد</a>
+                <a href="#participants">لیست ثبت نامی ها</a>
                 <a href="#archive">لیست آرشیو</a>
                 <a href="#share-settings">تنظیمات سهم ها</a>
                 <a href="#notification-settings">تنظیمات اعلانیه</a>
@@ -542,6 +658,96 @@ $count = count($participants);
             </div>
         </aside>
         <main class="content">
+            <div id="dashboard" class="card tab-section active">
+                <div class="dashboard-hero">
+                    <div>
+                        <div class="tag" style="background:rgba(255,255,255,0.15); border:none; color:#fff;">تصویر کلی مجموعه</div>
+                        <h1>داشبورد لحظه‌ای فروش سهم</h1>
+                        <p>در یک نگاه تعداد ثبت‌نامی‌ها، پرداختی‌ها و روند سهم‌ها را زیر نظر داشته باشید.</p>
+                    </div>
+                    <div class="hero-figure">
+                        <div class="hero-ring" style="--percent: <?php echo (int)$activePercent; ?>;">
+                            <span><?php echo fa_digits(number_format($countTotal)); ?></span>
+                            <small>ثبت نام فعال</small>
+                        </div>
+                        <div class="hero-meta">
+                            <small>مجموع پرداخت شده</small>
+                            <strong><?php echo fa_digits(number_format($participantsPaidTotal)); ?> <span style="font-size:14px;">تومان</span></strong>
+                            <small>میانگین هر نفر: <?php echo fa_digits(number_format($avgPaid)); ?> تومان</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric-card accent">
+                        <div class="metric-card__label">تعداد ثبت نامی‌ها</div>
+                        <div class="metric-card__value"><?php echo fa_digits(number_format($countTotal)); ?> نفر</div>
+                        <div class="metric-card__sub">در آرشیو: <?php echo fa_digits(number_format($archiveCount)); ?> نفر</div>
+                        <div class="metric-card__spark"><span style="--value: <?php echo $overallRecords > 0 ? round(($countTotal / max($overallRecords, 1)) * 100) : 0; ?>%;"></span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card__label">پرداخت شده ثبت‌نامی‌ها</div>
+                        <div class="metric-card__value"><?php echo fa_digits(number_format($participantsPaidTotal)); ?> <span style="font-size:14px;">تومان</span></div>
+                        <div class="metric-card__sub">میانگین: <?php echo fa_digits(number_format($avgPaid)); ?> تومان</div>
+                        <div class="metric-card__spark"><span style="--value: 78%;"></span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card__label">جمع کل سهم‌ها</div>
+                        <div class="metric-card__value"><?php echo fa_digits(number_format($totalShares)); ?> سهم</div>
+                        <div class="metric-card__sub">میانگین سهم هر نفر: <?php echo fa_digits(number_format($avgShares, 1)); ?></div>
+                        <div class="metric-card__spark"><span style="--value: 64%;"></span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card__label">وضعیت آرشیو</div>
+                        <div class="metric-card__value"><?php echo fa_digits(number_format($archivePaidTotal)); ?> <span style="font-size:14px;">تومان</span></div>
+                        <div class="metric-card__sub">پرونده‌ها: <?php echo fa_digits(number_format($archiveCount)); ?></div>
+                        <div class="metric-card__spark"><span style="--value: <?php echo $overallRecords > 0 ? round(($archiveCount / max($overallRecords, 1)) * 100) : 0; ?>%;"></span></div>
+                    </div>
+                </div>
+                <div class="share-chart">
+                    <h3>نمودار توزیع سهم‌ها</h3>
+                    <div class="share-bars">
+                        <?php
+                        $shareBarMax = max($shareCounts) ?: 1;
+                        foreach ($shareCounts as $tickets => $shareCount):
+                            $barPercent = $shareBarMax > 0 ? round(($shareCount / $shareBarMax) * 100) : 0;
+                            $sharePercent = $countTotal > 0 ? ($shareCount / $countTotal) * 100 : 0;
+                            $sharePercentDisplay = $sharePercent >= 10 ? round($sharePercent) : round($sharePercent, 1);
+                            $sharePercentString = (abs($sharePercentDisplay - (int)$sharePercentDisplay) < 0.05)
+                                ? (string)(int)$sharePercentDisplay
+                                : number_format($sharePercentDisplay, 1);
+                        ?>
+                        <div class="share-bar">
+                            <div>
+                                <div class="share-bar__label"><?php echo fa_digits(number_format($tickets)); ?> سهمی</div>
+                                <div class="share-bar__percent"><?php echo fa_digits($sharePercentString); ?>٪ از کل</div>
+                            </div>
+                            <div class="share-bar__track">
+                                <div class="share-bar__fill" style="--bar: <?php echo $barPercent; ?>%;"></div>
+                            </div>
+                            <div class="share-bar__value"><?php echo fa_digits(number_format($shareCount)); ?> نفر</div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="radial-grid">
+                    <div class="radial-card">
+                        <div class="radial-progress" style="--percent: <?php echo (int)$activePercent; ?>; --accent:#22c55e;">
+                            <span><?php echo fa_digits(number_format($activePercent)); ?>٪</span>
+                            <small>ثبت نامی‌ها</small>
+                        </div>
+                        <strong><?php echo fa_digits(number_format($countTotal)); ?> نفر</strong>
+                        <p>در حال پیگیری و فعال</p>
+                    </div>
+                    <div class="radial-card">
+                        <div class="radial-progress" style="--percent: <?php echo (int)$archivedPercent; ?>; --accent:#f97316;">
+                            <span><?php echo fa_digits(number_format($archivedPercent)); ?>٪</span>
+                            <small>آرشیو</small>
+                        </div>
+                        <strong><?php echo fa_digits(number_format($archivePaidTotal)); ?> تومان</strong>
+                        <p>پرداختی آرشیو (<?php echo fa_digits(number_format($archiveCount)); ?> پرونده)</p>
+                    </div>
+                </div>
+            </div>
             <!-- Notification Settings -->
             <div id="notification-settings" class="card tab-section" style="margin-bottom:16px;">
                 <h2 class="title" style="margin-top:0">پیامک SMS.ir</h2>
@@ -616,7 +822,7 @@ $count = count($participants);
                     </div>
                 </form>
             </div>
-            <div id="participants" class="card tab-section active">
+            <div id="participants" class="card tab-section">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
                     <div class="count-box">
@@ -809,7 +1015,7 @@ $count = count($participants);
           links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+id); });
           try{ history.replaceState(null,'','#'+id); }catch(e){}
         }
-        var initial = (location.hash||'#participants').slice(1);
+        var initial = (location.hash||'#dashboard').slice(1);
         if(!sections[initial]){ initial = Object.keys(sections)[0] || null; }
         if(initial){ activate(initial); }
         links.forEach(function(a){
