@@ -578,7 +578,8 @@ $count = count($participants);
         .side-bottom .logout { color: var(--brand); font-weight:700; text-decoration:none; }
         .side-bottom .logout:hover { color: var(--brand); background: transparent; }
         .side-brand .brand-avatar { background:#f1f5f9; color: var(--brand); }
-        #dashboard.card { display:flex; flex-direction:column; gap:24px; }
+        #dashboard.card { flex-direction:column; gap:24px; }
+        #dashboard.card.tab-section.active { display:flex; }
         .dashboard-hero { display:flex; flex-wrap:wrap; gap:24px; padding:24px; border-radius:24px; background:linear-gradient(135deg, #0f172a, #c026d3); color:#fff; }
         .dashboard-hero h1 { margin:0; font-size:28px; }
         .dashboard-hero p { margin:0; color:rgba(255,255,255,0.85); }
