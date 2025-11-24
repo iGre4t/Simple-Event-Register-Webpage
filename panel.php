@@ -612,7 +612,7 @@ $count = count($participants);
                     <label for="share_price_4" style="font-weight:700;">????? 4 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_4" name="share_price_4" value="<?php echo htmlspecialchars((string)($sharesConfig[4] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
-                        <button class="btn" type="submit">????? ثبت</button>
+                        <button class="btn" type="submit">ذخیره تعرفه ها</button>
                     </div>
                 </form>
             </div>
