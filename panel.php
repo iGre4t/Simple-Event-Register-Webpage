@@ -248,6 +248,13 @@ function read_archived(): array {
     return $out;
 }
 
+function circle_metrics(float $percent, float $radius = 60.0): array {
+    $clamped = max(0.0, min(100.0, $percent));
+    $circ = 2 * pi() * $radius;
+    $offset = $circ * (1 - ($clamped / 100));
+    return [$circ, $offset];
+}
+
 // If not logged in, show login form
 if (!($_SESSION['is_admin'] ?? false)) {
     ?>
@@ -451,6 +458,9 @@ foreach ($archivedRows as $arch) {
 $overallRecords = $countTotal + $archiveCount;
 $activePercent = $overallRecords > 0 ? round(($countTotal / $overallRecords) * 100) : 0;
 $archivedPercent = $overallRecords > 0 ? 100 - $activePercent : 0;
+[$heroCirc, $heroOffset] = circle_metrics((float)$activePercent, 60.0);
+[$activeCardCirc, $activeCardOffset] = circle_metrics((float)$activePercent, 52.0);
+[$archiveCardCirc, $archiveCardOffset] = circle_metrics((float)$archivedPercent, 52.0);
 
 // Filters: search and sort
 $q = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
@@ -580,45 +590,48 @@ $count = count($participants);
         .side-brand .brand-avatar { background:#f1f5f9; color: var(--brand); }
         #dashboard.card { flex-direction:column; gap:24px; }
         #dashboard.card.tab-section.active { display:flex; }
-        .dashboard-hero { display:flex; flex-wrap:wrap; gap:24px; padding:24px; border-radius:24px; background:linear-gradient(135deg, #0f172a, #c026d3); color:#fff; }
-        .dashboard-hero h1 { margin:0; font-size:28px; }
-        .dashboard-hero p { margin:0; color:rgba(255,255,255,0.85); }
+        .dashboard-hero { display:flex; flex-wrap:wrap; gap:24px; padding:24px; border-radius:24px; background:var(--brand); color:#fff; }
+        .dashboard-hero h1 { margin:0; font-size:28px; color:#fff; }
+        .dashboard-hero p { margin:0; color:#fff; opacity:0.9; }
         .dashboard-hero .hero-figure { display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
-        .hero-ring { width:150px; aspect-ratio:1; border-radius:50%; background:conic-gradient(rgba(255,255,255,0.7) calc(var(--percent,0) * 1%), rgba(255,255,255,0.15) 0); position:relative; display:grid; place-items:center; }
-        .hero-ring::after { content:''; position:absolute; inset:18px; border-radius:50%; background:rgba(15,23,42,0.8); }
-        .hero-ring span { position:relative; font-size:24px; font-weight:800; }
-        .hero-ring small { position:relative; display:block; margin-top:6px; font-size:12px; color:#cbd5f5; }
-        .hero-figure .hero-meta { display:flex; flex-direction:column; gap:4px; min-width:180px; }
-        .hero-meta strong { font-size:26px; font-weight:800; }
-        .hero-meta small { font-size:12px; color:rgba(255,255,255,0.7); }
+        .hero-figure .hero-meta { display:flex; flex-direction:column; gap:6px; min-width:200px; color:#fff; }
+        .hero-meta strong { font-size:26px; font-weight:800; color:#fff; }
+        .hero-meta small { font-size:12px; color:#fff; opacity:0.8; }
         .metric-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
-        .metric-card { padding:20px; border-radius:18px; background:#f8fafc; border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; }
-        .metric-card.accent { background:linear-gradient(140deg,#fed7aa,#fecaca); border-color:transparent; color:#7c2d12; }
-        .metric-card__label { font-size:13px; color:#64748b; }
-        .metric-card.accent .metric-card__label { color:#7c2d12; }
-        .metric-card__value { font-size:24px; font-weight:800; color:#0f172a; }
-        .metric-card.accent .metric-card__value { color:#7c2d12; }
-        .metric-card__sub { font-size:13px; color:#94a3b8; }
-        .metric-card.accent .metric-card__sub { color:#9a3412; }
-        .metric-card__spark { height:6px; border-radius:999px; background:rgba(99,102,241,0.12); overflow:hidden; }
-        .metric-card__spark span { display:block; height:100%; width:var(--value,50%); background:linear-gradient(90deg,#6366f1,#ec4899); border-radius:inherit; }
-        .share-chart { padding:20px; border-radius:20px; background:#fff; border:1px solid #e2e8f0; }
-        .share-chart h3 { margin-top:0; margin-bottom:16px; font-size:18px; }
+        .metric-card { padding:20px; border-radius:18px; background:#fff; border:1px solid rgba(198,52,55,0.2); display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; color:var(--brand); }
+        .metric-card.accent { border:2px solid var(--brand); }
+        .metric-card__label,
+        .metric-card__value,
+        .metric-card__sub { color:var(--brand); }
+        .metric-card__value { font-size:24px; font-weight:800; }
+        .metric-card__label { font-size:13px; }
+        .metric-card__sub { font-size:13px; opacity:0.8; }
+        .metric-card__spark { height:6px; border-radius:999px; background:#fff; border:1px solid rgba(198,52,55,0.2); overflow:hidden; }
+        .metric-card__spark span { display:block; height:100%; width:var(--value,50%); background:var(--brand); }
+        .share-chart { padding:20px; border-radius:20px; background:#fff; border:1px solid rgba(198,52,55,0.2); }
+        .share-chart h3 { margin-top:0; margin-bottom:16px; font-size:18px; color:var(--brand); }
         .share-bars { display:flex; flex-direction:column; gap:14px; }
         .share-bar { display:grid; grid-template-columns:120px 1fr auto; gap:12px; align-items:center; }
-        .share-bar__label { font-weight:700; color:#0f172a; }
-        .share-bar__track { position:relative; height:10px; border-radius:999px; background:#f1f5f9; overflow:hidden; }
-        .share-bar__fill { position:absolute; inset:0; width:var(--bar,0%); background:linear-gradient(90deg,#10b981,#14b8a6); border-radius:inherit; }
-        .share-bar__value { font-weight:700; color:#0f172a; }
-        .share-bar__percent { font-size:12px; color:#94a3b8; }
+        .share-bar__label { font-weight:700; color:var(--brand); }
+        .share-bar__track { position:relative; height:10px; border-radius:999px; background:#fff; border:1px solid rgba(198,52,55,0.2); overflow:hidden; }
+        .share-bar__fill { position:absolute; inset:0; width:var(--bar,0%); background:var(--brand); border-radius:inherit; }
+        .share-bar__value { font-weight:700; color:var(--brand); }
+        .share-bar__percent { font-size:12px; color:var(--brand); opacity:0.85; }
         .radial-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
-        .radial-card { padding:20px; border-radius:18px; border:1px solid #e2e8f0; background:#f9fafb; text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; }
-        .radial-progress { width:140px; aspect-ratio:1; border-radius:50%; background:conic-gradient(var(--accent, var(--brand)) calc(var(--percent,0) * 1%), #e2e8f0 0); position:relative; display:grid; place-items:center; }
-        .radial-progress::after { content:''; position:absolute; inset:18px; border-radius:50%; background:#fff; }
-        .radial-progress span { position:relative; font-size:22px; font-weight:800; color:#0f172a; }
-        .radial-progress small { position:relative; display:block; margin-top:4px; font-size:12px; color:#94a3b8; }
-        .radial-card strong { font-size:20px; color:#0f172a; }
-        .radial-card p { margin:0; font-size:13px; color:#94a3b8; }
+        .radial-card { padding:20px; border-radius:18px; border:1px solid rgba(198,52,55,0.2); background:#fff; text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; color:var(--brand); }
+        .radial-card strong { font-size:20px; color:var(--brand); }
+        .radial-card p { margin:0; font-size:13px; color:var(--brand); opacity:0.8; }
+        .progress-circle { width:150px; aspect-ratio:1; position:relative; display:inline-block; }
+        .progress-circle svg { width:100%; height:100%; transform:rotate(-90deg); }
+        .progress-circle circle { fill:none; stroke-linecap:round; }
+        .progress-circle circle.track { stroke:rgba(255,255,255,0.25); stroke-width:10; }
+        .progress-circle circle.indicator { stroke:#fff; stroke-width:10; }
+        .progress-circle__value { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:#fff; gap:2px; }
+        .progress-circle__value strong { font-size:22px; font-weight:800; }
+        .progress-circle__value span { font-size:12px; }
+        .progress-circle--light circle.track { stroke:rgba(198,52,55,0.15); }
+        .progress-circle--light circle.indicator { stroke:var(--brand); }
+        .progress-circle--light .progress-circle__value { color:var(--brand); }
     </style>
 </head>
 <body>
@@ -667,9 +680,15 @@ $count = count($participants);
                         <p>در یک نگاه تعداد ثبت‌نامی‌ها، پرداختی‌ها و روند سهم‌ها را زیر نظر داشته باشید.</p>
                     </div>
                     <div class="hero-figure">
-                        <div class="hero-ring" style="--percent: <?php echo (int)$activePercent; ?>;">
-                            <span><?php echo fa_digits(number_format($countTotal)); ?></span>
-                            <small>ثبت نام فعال</small>
+                        <div class="progress-circle">
+                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
+                                <circle class="track" cx="70" cy="70" r="60"></circle>
+                                <circle class="indicator" cx="70" cy="70" r="60" stroke-dasharray="<?php echo number_format($heroCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($heroOffset, 2, '.', ''); ?>"></circle>
+                            </svg>
+                            <div class="progress-circle__value">
+                                <strong><?php echo fa_digits(number_format($countTotal)); ?></strong>
+                                <span>ثبت نام فعال</span>
+                            </div>
                         </div>
                         <div class="hero-meta">
                             <small>مجموع پرداخت شده</small>
@@ -732,17 +751,29 @@ $count = count($participants);
                 </div>
                 <div class="radial-grid">
                     <div class="radial-card">
-                        <div class="radial-progress" style="--percent: <?php echo (int)$activePercent; ?>; --accent:#22c55e;">
-                            <span><?php echo fa_digits(number_format($activePercent)); ?>٪</span>
-                            <small>ثبت نامی‌ها</small>
+                        <div class="progress-circle progress-circle--light">
+                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
+                                <circle class="track" cx="70" cy="70" r="52"></circle>
+                                <circle class="indicator" cx="70" cy="70" r="52" stroke-dasharray="<?php echo number_format($activeCardCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($activeCardOffset, 2, '.', ''); ?>"></circle>
+                            </svg>
+                            <div class="progress-circle__value">
+                                <strong><?php echo fa_digits(number_format($activePercent)); ?>٪</strong>
+                                <span>ثبت نامی‌ها</span>
+                            </div>
                         </div>
                         <strong><?php echo fa_digits(number_format($countTotal)); ?> نفر</strong>
                         <p>در حال پیگیری و فعال</p>
                     </div>
                     <div class="radial-card">
-                        <div class="radial-progress" style="--percent: <?php echo (int)$archivedPercent; ?>; --accent:#f97316;">
-                            <span><?php echo fa_digits(number_format($archivedPercent)); ?>٪</span>
-                            <small>آرشیو</small>
+                        <div class="progress-circle progress-circle--light">
+                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
+                                <circle class="track" cx="70" cy="70" r="52"></circle>
+                                <circle class="indicator" cx="70" cy="70" r="52" stroke-dasharray="<?php echo number_format($archiveCardCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($archiveCardOffset, 2, '.', ''); ?>"></circle>
+                            </svg>
+                            <div class="progress-circle__value">
+                                <strong><?php echo fa_digits(number_format($archivedPercent)); ?>٪</strong>
+                                <span>آرشیو</span>
+                            </div>
                         </div>
                         <strong><?php echo fa_digits(number_format($archivePaidTotal)); ?> تومان</strong>
                         <p>پرداختی آرشیو (<?php echo fa_digits(number_format($archiveCount)); ?> پرونده)</p>
