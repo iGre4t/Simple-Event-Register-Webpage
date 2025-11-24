@@ -825,10 +825,6 @@ $count = count($participants);
             <div id="participants" class="card tab-section">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
-                    <div class="count-box">
-                        <span>تعداد ثبت نامی ها</span>
-                        <b><?php echo fa_digits(number_format($count)); ?></b>
-                    </div>
                 </div>
                 <!--
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
@@ -1227,7 +1223,7 @@ $count = count($participants);
         }
         if (from) from.addEventListener('change', enforceOrder);
         if (to)   to.addEventListener('change',   enforceOrder);
-        var countBox = document.querySelector('.count-box b');
+        var countBox = document.querySelector('#participants .count-box b');
 
         function params(){
           var p = new URLSearchParams();
