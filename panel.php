@@ -518,11 +518,10 @@ $count = count($participants);
                 </div>
             </div>
             <nav class="side-nav">
-                <a href="#share-settings">تنظیمات سهم ها</a>
-                <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
-                <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
+                <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
+                <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1" style="display:flex; align-items:center; gap:10px;">
@@ -533,9 +532,10 @@ $count = count($participants);
         <aside class="sidebar">
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
-                <a href="#notification-settings">تنظیمات اعلانیه</a>
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
                 <a href="#archive">لیست آرشیو</a>
+                <a href="#share-settings">تنظیمات سهم ها</a>
+                <a href="#notification-settings">تنظیمات اعلانیه</a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
