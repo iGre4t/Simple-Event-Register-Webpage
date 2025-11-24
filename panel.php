@@ -798,15 +798,18 @@ $count = count($participants);
                     <input class="ctrl" type="text" id="smsir_api" name="smsir_api" placeholder="مثال: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <label for="smsir_line" style="font-weight:700;">شماره خط اختصاصی SMS.ir</label>
                     <input class="ctrl" type="text" id="smsir_line" name="smsir_line" placeholder="مثال: 3000xxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['line_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
+                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
                         <button class="btn" type="submit">ذخیره تنظیمات</button>
                     </div>
-                    <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
-                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                 </form>
 
+            </div>
+
+            <div id="telegram-settings" class="card tab-section" style="margin-bottom:16px;">
                 <!-- Telegram admin account settings -->
-                <h2 class="title" style="margin-top:24px">اکانت تلگرام ادمین</h2>
+                <h2 class="title" style="margin-top:0">اکانت تلگرام ادمین</h2>
                 <?php if ($telegramSaveMsg !== ''): ?>
                     <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
                         <?php echo htmlspecialchars($telegramSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
@@ -817,7 +820,7 @@ $count = count($participants);
                         <?php echo htmlspecialchars($telegramSaveErr, ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
-                <form method="post" action="panel.php#notification-settings" style="display:grid; gap:12px; max-width:640px;">
+                <form method="post" action="panel.php#telegram-settings" style="display:grid; gap:12px; max-width:640px;">
                     <input type="hidden" name="action" value="save_telegram_admin" />
                     <label for="telegram_admin_chat_id" style="font-weight:700;">USER ID (اکانت تلگرام ادمین)</label>
                     <input class="ctrl" type="text" id="telegram_admin_chat_id" name="telegram_admin_chat_id" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)($telegramConfig['admin_chat_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
