@@ -799,7 +799,7 @@ $count = count($participants);
                     <label for="smsir_line" style="font-weight:700;">شماره خط اختصاصی SMS.ir</label>
                     <input class="ctrl" type="text" id="smsir_line" name="smsir_line" placeholder="مثال: 3000xxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['line_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
-                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="شماره تلفن ادمین" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
                         <button class="btn" type="submit">ذخیره تنظیمات</button>
                     </div>
