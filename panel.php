@@ -1040,18 +1040,35 @@ $count = count($participants);
           var sec = document.getElementById(id);
           if(sec){ sections[id]=sec; }
         });
+        var telegramSection = document.getElementById('telegram-settings');
+        if (telegramSection) {
+          sections['telegram-settings'] = telegramSection;
+        }
+        function normalizeId(id){
+          if(id === 'telegram-settings'){ return 'notification-settings'; }
+          return id;
+        }
         function activate(id){
-          Object.keys(sections).forEach(function(k){ sections[k].classList.toggle('active', k===id); });
-          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+id); });
-          try{ history.replaceState(null,'','#'+id); }catch(e){}
+          var normId = normalizeId(id);
+          Object.keys(sections).forEach(function(k){
+            var shouldShow = (k === normId) || (normId === 'notification-settings' && k === 'telegram-settings');
+            sections[k].classList.toggle('active', shouldShow);
+          });
+          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+normId); });
+          try{ history.replaceState(null,'','#'+normId); }catch(e){}
         }
         var initial = (location.hash||'#dashboard').slice(1);
-        if(!sections[initial]){ initial = Object.keys(sections)[0] || null; }
-        if(initial){ activate(initial); }
+        var normInitial = normalizeId(initial);
+        if(!sections[normInitial]){ normInitial = Object.keys(sections)[0] || null; }
+        if(normInitial){ activate(normInitial); }
         links.forEach(function(a){
           a.addEventListener('click', function(ev){ ev.preventDefault(); activate((this.getAttribute('href')||'').slice(1)); });
         });
-        window.addEventListener('hashchange', function(){ var id=(location.hash||'').slice(1); if(sections[id]) activate(id); });
+        window.addEventListener('hashchange', function(){
+          var id=(location.hash||'').slice(1);
+          var normId = normalizeId(id);
+          if(sections[normId]) activate(normId);
+        });
       })();
     </script>
     <script>
