@@ -603,13 +603,13 @@ $count = count($participants);
                 <?php endif; ?>
                 <form method="post" action="panel.php#share-settings" style="display:grid; gap:12px; max-width:640px;">
                     <input type="hidden" name="action" value="save_shares" />
-                    <label for="share_price_1" style="font-weight:700;">????? 1 ???? (?????)</label>
+                    <label for="share_price_1" style="font-weight:700;">قیمت 1 سهم</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_1" name="share_price_1" value="<?php echo htmlspecialchars((string)($sharesConfig[1] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_2" style="font-weight:700;">????? 2 ???? (?????)</label>
+                    <label for="share_price_2" style="font-weight:700;">قیمت 2 سهم</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_2" name="share_price_2" value="<?php echo htmlspecialchars((string)($sharesConfig[2] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_3" style="font-weight:700;">????? 3 ???? (?????)</label>
+                    <label for="share_price_3" style="font-weight:700;">قیمت 3 سهم</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_3" name="share_price_3" value="<?php echo htmlspecialchars((string)($sharesConfig[3] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_4" style="font-weight:700;">????? 4 ???? (?????)</label>
+                    <label for="share_price_4" style="font-weight:700;">قیمت 4 سهم</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_4" name="share_price_4" value="<?php echo htmlspecialchars((string)($sharesConfig[4] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
                         <button class="btn" type="submit">ذخیره تعرفه ها</button>
