@@ -196,63 +196,63 @@ function read_participants(): array {
     return $all;
 }
 
-function read_archived(): array {
-    $file = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'archiev.csv';
-    $out = [];
-    if (!is_file($file)) { return $out; }
-    if (($fh = fopen($file, 'r')) === false) { return $out; }
-    $lineNo = 0; $header = []; $idx = [];
-    while (($row = fgetcsv($fh)) !== false) {
-        $lineNo++;
-        if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tickets') {
-            $header = array_map(function($h){ return strtolower(trim((string)$h)); }, $row);
-            $idx = array_flip($header);
-            continue;
+if (isset($_GET['bracket_action'])) {
+    header('Content-Type: application/json; charset=UTF-8');
+    if (!($_SESSION['is_admin'] ?? false)) {
+        echo json_encode(['ok' => false, 'message' => 'Unauthorized'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $action = (string)$_GET['bracket_action'];
+    if ($action === 'stage') {
+        $stage = (int)($_GET['stage'] ?? 0);
+        $participants = read_participants();
+        $rows = array_map(function($row){ return [
+            'fullname' => (string)($row['fullname'] ?? ''),
+            'tickets' => (int)($row['tickets'] ?? 0),
+            'mobile' => (string)($row['mobile'] ?? ''),
+        ]; }, $participants);
+        $stageDefs = [
+            1 => ['name' => 'مرحله اول',    'file' => '1stLevel.csv'],
+            2 => ['name' => 'مرحله دوم',    'file' => '2ndLevel.csv'],
+            3 => ['name' => 'مرحله سوم',    'file' => '3rdLevel.csv'],
+            4 => ['name' => 'مرحله چهارم', 'file' => '4thLevel.csv'],
+        ];
+        $filter = function(int $tickets) use ($stage): bool {
+            switch ($stage) {
+                case 2:
+                    return $tickets !== 1;
+                case 3:
+                    return $tickets >= 3;
+                case 4:
+                    return $tickets === 4;
+                case 1:
+                default:
+                    return true;
+            }
+        };
+        $filtered = array_values(array_filter($rows, function($row) use ($filter) {
+            return $filter((int)($row['tickets'] ?? 0));
+        }));
+        $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+        if (!is_dir($storageDir)) {
+            @mkdir($storageDir, 0755, true);
         }
-        if (!empty($header)) {
-            $rec = [
-                'tickets'   => (int)($row[$idx['tickets'] ?? -1] ?? 0),
-                'tag'       => (string)($row[$idx['tag'] ?? -1] ?? ''),
-                'fullname'  => (string)($row[$idx['fullname'] ?? -1] ?? ''),
-                'mobile'    => (string)($row[$idx['mobile'] ?? -1] ?? ''),
-                'total'     => (int)($row[$idx['total'] ?? -1] ?? 0),
-                'ref_id'    => (string)($row[$idx['ref_id'] ?? -1] ?? ''),
-                'created_at'=> (string)($row[$idx['created_at'] ?? -1] ?? ''),
-                'paid_at'   => (string)($row[$idx['paid_at'] ?? -1] ?? ''),
-                'authority' => (string)($row[$idx['authority'] ?? -1] ?? ''),
-            ];
-        } else {
-            $rec = [
-                'tickets'   => (int)($row[0] ?? 0),
-                'tag'       => (string)($row[1] ?? ''),
-                'fullname'  => (string)($row[2] ?? ''),
-                'mobile'    => (string)($row[3] ?? ''),
-                'total'     => (int)($row[4] ?? 0),
-                'ref_id'    => (string)($row[5] ?? ''),
-                'created_at'=> (string)($row[6] ?? ''),
-                'paid_at'   => (string)($row[7] ?? ''),
-                'authority' => (string)($row[8] ?? ''),
-            ];
-        }
-        $ts = 0;
-        foreach ([$rec['created_at'], $rec['paid_at']] as $d) {
-            if ($d) {
-                $t = strtotime($d);
-                if ($t) { $ts = $t; break; }
+        if (isset($stageDefs[$stage])) {
+            $target = $storageDir . DIRECTORY_SEPARATOR . $stageDefs[$stage]['file'];
+            $fh = @fopen($target, 'w');
+            if ($fh !== false) {
+                fputcsv($fh, ['fullname', 'mobile', 'tickets', 'stage', 'timestamp']);
+                foreach ($filtered as $row) {
+                    fputcsv($fh, [$row['fullname'], $row['mobile'], $row['tickets'], $stageDefs[$stage]['name'], time()]);
+                }
+                fclose($fh);
             }
         }
-        $rec['ts'] = $ts;
-        $out[] = $rec;
+        echo json_encode(['ok' => true, 'rows' => $filtered], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-    fclose($fh);
-    return $out;
-}
-
-function circle_metrics(float $percent, float $radius = 60.0): array {
-    $clamped = max(0.0, min(100.0, $percent));
-    $circ = 2 * pi() * $radius;
-    $offset = $circ * (1 - ($clamped / 100));
-    return [$circ, $offset];
+    echo json_encode(['ok' => false, 'message' => 'Unknown action'], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // If not logged in, show login form
@@ -436,31 +436,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
 // Logged in: compute data for participants tab
 $participants = read_participants();
 $countTotal = count($participants);
-$shareCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
-$totalShares = 0;
-$participantsPaidTotal = 0;
-foreach ($participants as $rec) {
-    $tickets = (int)($rec['tickets'] ?? 0);
-    if ($tickets < 1 || $tickets > 4) { $tickets = 1; }
-    $shareCounts[$tickets] = ($shareCounts[$tickets] ?? 0) + 1;
-    $totalShares += $tickets;
-    $participantsPaidTotal += (int)($rec['total'] ?? 0);
-}
-$avgPaid = $countTotal > 0 ? (int)round($participantsPaidTotal / max($countTotal, 1)) : 0;
-$avgShares = $countTotal > 0 ? round($totalShares / max($countTotal, 1), 1) : 0;
-
-$archivedRows = read_archived();
-$archiveCount = count($archivedRows);
-$archivePaidTotal = 0;
-foreach ($archivedRows as $arch) {
-    $archivePaidTotal += (int)($arch['total'] ?? 0);
-}
-$overallRecords = $countTotal + $archiveCount;
-$activePercent = $overallRecords > 0 ? round(($countTotal / $overallRecords) * 100) : 0;
-$archivedPercent = $overallRecords > 0 ? 100 - $activePercent : 0;
-[$heroCirc, $heroOffset] = circle_metrics((float)$activePercent, 60.0);
-[$activeCardCirc, $activeCardOffset] = circle_metrics((float)$activePercent, 52.0);
-[$archiveCardCirc, $archiveCardOffset] = circle_metrics((float)$archivedPercent, 52.0);
 
 // Filters: search and sort
 $q = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
@@ -528,7 +503,6 @@ $count = count($participants);
             --sidebar-text:#f1f5f9;
             --sidebar-muted:#94a3b8;
             --brand:#C63437;
-            --ink:#0f172a;
         }
         body { min-height: 100svh; margin:0; background:#f1f5f9; font-family:'Peyda', 'PeydaWebFaNum', 'IRANSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100svh; }
@@ -560,6 +534,32 @@ $count = count($participants);
         /* Tabs: only show the active section */
         .tab-section { display: none; }
         .tab-section.active { display: block; }
+        .bracket-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        .bracket-tabs button {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #111827;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-weight: 700;
+            transition: background .15s ease, color .15s ease;
+        }
+        .bracket-tabs button.active {
+            background: #b91c1c;
+            color: #fff;
+            border-color: #b91c1c;
+        }
+        .bracket-stage-panels > .bracket-panel {
+            display: none;
+        }
+        .bracket-stage-panels > .bracket-panel.active {
+            display: block;
+        }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
         :root {
@@ -570,7 +570,6 @@ $count = count($participants);
             --sidebar-muted:#64748b; /* slate-500 */
             --sidebar-hover:#f1f5f9; /* light hover */
             --sidebar-active: var(--brand); /* project red on active */
-            --ink:#0f172a;
         }
         .app { grid-template-columns: 280px 1fr; }
         .sidebar { background: linear-gradient(180deg, var(--sidebar-grad), var(--sidebar-grad-2)); padding:20px 16px; border-left:1px solid #e5e7eb; color: var(--sidebar-text); }
@@ -590,47 +589,6 @@ $count = count($participants);
         .side-bottom .logout { color: var(--brand); font-weight:700; text-decoration:none; }
         .side-bottom .logout:hover { color: var(--brand); background: transparent; }
         .side-brand .brand-avatar { background:#f1f5f9; color: var(--brand); }
-        #dashboard.card { flex-direction:column; gap:24px; }
-        #dashboard.card.tab-section.active { display:flex; }
-        .dashboard-hero { display:flex; flex-wrap:wrap; gap:24px; padding:24px; border-radius:24px; background:var(--brand); color:#fff; }
-        .dashboard-hero h1 { margin:0; font-size:28px; color:#fff; }
-        .dashboard-hero p { margin:0; color:#fff; opacity:0.9; }
-        .dashboard-hero .hero-figure { display:flex; gap:24px; align-items:center; flex-wrap:wrap; }
-        .hero-figure .hero-meta { display:flex; flex-direction:column; gap:6px; min-width:200px; color:#fff; }
-        .hero-meta strong { font-size:26px; font-weight:800; color:#fff; }
-        .hero-meta small { font-size:12px; color:#fff; opacity:0.8; }
-        .metric-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
-        .metric-card { padding:20px; border-radius:18px; background:#fff; border:1px solid rgba(15,23,42,0.12); display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; color:var(--ink); }
-        .metric-card.accent { border:2px solid var(--brand); }
-        .metric-card__label { font-size:13px; color:var(--ink); }
-        .metric-card__value { font-size:24px; font-weight:800; color:var(--brand); }
-        .metric-card__sub { font-size:13px; color:var(--ink); opacity:0.75; }
-        .metric-card__spark { height:6px; border-radius:999px; background:#fff; border:1px solid rgba(15,23,42,0.15); overflow:hidden; }
-        .metric-card__spark span { display:block; height:100%; width:var(--value,50%); background:var(--brand); }
-        .share-chart { padding:20px; border-radius:20px; background:#fff; border:1px solid rgba(15,23,42,0.1); }
-        .share-chart h3 { margin-top:0; margin-bottom:16px; font-size:18px; color:var(--ink); }
-        .share-bars { display:flex; flex-direction:column; gap:14px; }
-        .share-bar { display:grid; grid-template-columns:120px 1fr auto; gap:12px; align-items:center; }
-        .share-bar__label { font-weight:700; color:var(--ink); }
-        .share-bar__track { position:relative; height:10px; border-radius:999px; background:#fff; border:1px solid rgba(15,23,42,0.18); overflow:hidden; }
-        .share-bar__fill { position:absolute; inset:0; width:var(--bar,0%); background:var(--brand); border-radius:inherit; }
-        .share-bar__value { font-weight:700; color:var(--ink); }
-        .share-bar__percent { font-size:12px; color:var(--brand); opacity:0.9; }
-        .radial-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
-        .radial-card { padding:20px; border-radius:18px; border:1px solid rgba(15,23,42,0.12); background:#fff; text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; color:var(--ink); }
-        .radial-card strong { font-size:20px; color:var(--ink); }
-        .radial-card p { margin:0; font-size:13px; color:var(--ink); opacity:0.8; }
-        .progress-circle { width:150px; aspect-ratio:1; position:relative; display:inline-block; }
-        .progress-circle svg { width:100%; height:100%; transform:rotate(-90deg); }
-        .progress-circle circle { fill:none; stroke-linecap:round; }
-        .progress-circle circle.track { stroke:rgba(255,255,255,0.25); stroke-width:10; }
-        .progress-circle circle.indicator { stroke:#fff; stroke-width:10; }
-        .progress-circle__value { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:#fff; gap:2px; }
-        .progress-circle__value strong { font-size:22px; font-weight:800; }
-        .progress-circle__value span { font-size:12px; }
-        .progress-circle--light circle.track { stroke:rgba(15,23,42,0.15); }
-        .progress-circle--light circle.indicator { stroke:var(--brand); }
-        .progress-circle--light .progress-circle__value { color:var(--ink); }
     </style>
 </head>
 <body>
@@ -645,11 +603,12 @@ $count = count($participants);
                 </div>
             </div>
             <nav class="side-nav">
-                <a href="#dashboard" class="active"><i data-feather="activity"></i><span>داشبورد</span></a>
-                <a href="#participants"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
-                <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
+                <a href="#share-settings">تنظیمات سهم ها</a>
                 <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
+                <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
+                <a href="#bracketing"><i data-feather="layout"></i><span>براکت بندی</span></a>
+                <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1" style="display:flex; align-items:center; gap:10px;">
@@ -660,125 +619,16 @@ $count = count($participants);
         <aside class="sidebar">
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
-                <a href="#dashboard" class="active">داشبورد</a>
-                <a href="#participants">لیست ثبت نامی ها</a>
-                <a href="#archive">لیست آرشیو</a>
-                <a href="#share-settings">تنظیمات سهم ها</a>
                 <a href="#notification-settings">تنظیمات اعلانیه</a>
+                <a href="#participants" class="active">لیست ثبت نامی ها</a>
+                <a href="#bracketing">براکت بندی</a>
+                <a href="#archive">لیست آرشیو</a>
             </nav>
             <div class="side-bottom">
                 <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
             </div>
         </aside>
         <main class="content">
-            <div id="dashboard" class="card tab-section active">
-                <div class="dashboard-hero">
-                    <div>
-                        <div class="tag" style="background:rgba(255,255,255,0.15); border:none; color:#fff;">تصویر کلی مجموعه</div>
-                        <h1>داشبورد لحظه‌ای فروش سهم</h1>
-                        <p>در یک نگاه تعداد ثبت‌نامی‌ها، پرداختی‌ها و روند سهم‌ها را زیر نظر داشته باشید.</p>
-                    </div>
-                    <div class="hero-figure">
-                        <div class="progress-circle">
-                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
-                                <circle class="track" cx="70" cy="70" r="60"></circle>
-                                <circle class="indicator" cx="70" cy="70" r="60" stroke-dasharray="<?php echo number_format($heroCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($heroOffset, 2, '.', ''); ?>"></circle>
-                            </svg>
-                            <div class="progress-circle__value">
-                                <strong><?php echo fa_digits(number_format($countTotal)); ?></strong>
-                                <span>ثبت نام فعال</span>
-                            </div>
-                        </div>
-                        <div class="hero-meta">
-                            <small>مجموع پرداخت شده</small>
-                            <strong><?php echo fa_digits(number_format($participantsPaidTotal)); ?> <span style="font-size:14px;">تومان</span></strong>
-                            <small>میانگین هر نفر: <?php echo fa_digits(number_format($avgPaid)); ?> تومان</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="metric-grid">
-                    <div class="metric-card accent">
-                        <div class="metric-card__label">تعداد ثبت نامی‌ها</div>
-                        <div class="metric-card__value"><?php echo fa_digits(number_format($countTotal)); ?> نفر</div>
-                        <div class="metric-card__sub">در آرشیو: <?php echo fa_digits(number_format($archiveCount)); ?> نفر</div>
-                        <div class="metric-card__spark"><span style="--value: <?php echo $overallRecords > 0 ? round(($countTotal / max($overallRecords, 1)) * 100) : 0; ?>%;"></span></div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-card__label">پرداخت شده ثبت‌نامی‌ها</div>
-                        <div class="metric-card__value"><?php echo fa_digits(number_format($participantsPaidTotal)); ?> <span style="font-size:14px;">تومان</span></div>
-                        <div class="metric-card__sub">میانگین: <?php echo fa_digits(number_format($avgPaid)); ?> تومان</div>
-                        <div class="metric-card__spark"><span style="--value: 78%;"></span></div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-card__label">جمع کل سهم‌ها</div>
-                        <div class="metric-card__value"><?php echo fa_digits(number_format($totalShares)); ?> سهم</div>
-                        <div class="metric-card__sub">میانگین سهم هر نفر: <?php echo fa_digits(number_format($avgShares, 1)); ?></div>
-                        <div class="metric-card__spark"><span style="--value: 64%;"></span></div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-card__label">وضعیت آرشیو</div>
-                        <div class="metric-card__value"><?php echo fa_digits(number_format($archivePaidTotal)); ?> <span style="font-size:14px;">تومان</span></div>
-                        <div class="metric-card__sub">پرونده‌ها: <?php echo fa_digits(number_format($archiveCount)); ?></div>
-                        <div class="metric-card__spark"><span style="--value: <?php echo $overallRecords > 0 ? round(($archiveCount / max($overallRecords, 1)) * 100) : 0; ?>%;"></span></div>
-                    </div>
-                </div>
-                <div class="share-chart">
-                    <h3>نمودار توزیع سهم‌ها</h3>
-                    <div class="share-bars">
-                        <?php
-                        $shareBarMax = max($shareCounts) ?: 1;
-                        foreach ($shareCounts as $tickets => $shareCount):
-                            $barPercent = $shareBarMax > 0 ? round(($shareCount / $shareBarMax) * 100) : 0;
-                            $sharePercent = $countTotal > 0 ? ($shareCount / $countTotal) * 100 : 0;
-                            $sharePercentDisplay = $sharePercent >= 10 ? round($sharePercent) : round($sharePercent, 1);
-                            $sharePercentString = (abs($sharePercentDisplay - (int)$sharePercentDisplay) < 0.05)
-                                ? (string)(int)$sharePercentDisplay
-                                : number_format($sharePercentDisplay, 1);
-                        ?>
-                        <div class="share-bar">
-                            <div>
-                                <div class="share-bar__label"><?php echo fa_digits(number_format($tickets)); ?> سهمی</div>
-                                <div class="share-bar__percent"><?php echo fa_digits($sharePercentString); ?>٪ از کل</div>
-                            </div>
-                            <div class="share-bar__track">
-                                <div class="share-bar__fill" style="--bar: <?php echo $barPercent; ?>%;"></div>
-                            </div>
-                            <div class="share-bar__value"><?php echo fa_digits(number_format($shareCount)); ?> نفر</div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <div class="radial-grid">
-                    <div class="radial-card">
-                        <div class="progress-circle progress-circle--light">
-                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
-                                <circle class="track" cx="70" cy="70" r="52"></circle>
-                                <circle class="indicator" cx="70" cy="70" r="52" stroke-dasharray="<?php echo number_format($activeCardCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($activeCardOffset, 2, '.', ''); ?>"></circle>
-                            </svg>
-                            <div class="progress-circle__value">
-                                <strong><?php echo fa_digits(number_format($activePercent)); ?>٪</strong>
-                                <span>ثبت نامی‌ها</span>
-                            </div>
-                        </div>
-                        <strong><?php echo fa_digits(number_format($countTotal)); ?> نفر</strong>
-                        <p>در حال پیگیری و فعال</p>
-                    </div>
-                    <div class="radial-card">
-                        <div class="progress-circle progress-circle--light">
-                            <svg viewBox="0 0 140 140" role="presentation" aria-hidden="true" focusable="false">
-                                <circle class="track" cx="70" cy="70" r="52"></circle>
-                                <circle class="indicator" cx="70" cy="70" r="52" stroke-dasharray="<?php echo number_format($archiveCardCirc, 2, '.', ''); ?>" stroke-dashoffset="<?php echo number_format($archiveCardOffset, 2, '.', ''); ?>"></circle>
-                            </svg>
-                            <div class="progress-circle__value">
-                                <strong><?php echo fa_digits(number_format($archivedPercent)); ?>٪</strong>
-                                <span>آرشیو</span>
-                            </div>
-                        </div>
-                        <strong><?php echo fa_digits(number_format($archivePaidTotal)); ?> تومان</strong>
-                        <p>پرداختی آرشیو (<?php echo fa_digits(number_format($archiveCount)); ?> پرونده)</p>
-                    </div>
-                </div>
-            </div>
             <!-- Notification Settings -->
             <div id="notification-settings" class="card tab-section" style="margin-bottom:16px;">
                 <h2 class="title" style="margin-top:0">پیامک SMS.ir</h2>
@@ -798,18 +648,15 @@ $count = count($participants);
                     <input class="ctrl" type="text" id="smsir_api" name="smsir_api" placeholder="مثال: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <label for="smsir_line" style="font-weight:700;">شماره خط اختصاصی SMS.ir</label>
                     <input class="ctrl" type="text" id="smsir_line" name="smsir_line" placeholder="مثال: 3000xxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['line_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
-                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="شماره تلفن ادمین" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
                         <button class="btn" type="submit">ذخیره تنظیمات</button>
                     </div>
+                    <label for="smsir_admin" style="font-weight:700;">شماره پیامک ادمین</label>
+                    <input class="ctrl" type="text" id="smsir_admin" name="smsir_admin" placeholder="????: 09xxxxxxxxx ?? +989xxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['admin_mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                 </form>
 
-            </div>
-
-            <div id="telegram-settings" class="card tab-section" style="margin-bottom:16px;">
                 <!-- Telegram admin account settings -->
-                <h2 class="title" style="margin-top:0">اکانت تلگرام ادمین</h2>
+                <h2 class="title" style="margin-top:24px">اکانت تلگرام ادمین</h2>
                 <?php if ($telegramSaveMsg !== ''): ?>
                     <div class="tag" style="background:#e8f5e9; border:1px solid #bbf7d0; color:#166534; margin-bottom:12px;">
                         <?php echo htmlspecialchars($telegramSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
@@ -820,7 +667,7 @@ $count = count($participants);
                         <?php echo htmlspecialchars($telegramSaveErr, ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
-                <form method="post" action="panel.php#telegram-settings" style="display:grid; gap:12px; max-width:640px;">
+                <form method="post" action="panel.php#notification-settings" style="display:grid; gap:12px; max-width:640px;">
                     <input type="hidden" name="action" value="save_telegram_admin" />
                     <label for="telegram_admin_chat_id" style="font-weight:700;">USER ID (اکانت تلگرام ادمین)</label>
                     <input class="ctrl" type="text" id="telegram_admin_chat_id" name="telegram_admin_chat_id" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)($telegramConfig['admin_chat_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
@@ -843,22 +690,26 @@ $count = count($participants);
                 <?php endif; ?>
                 <form method="post" action="panel.php#share-settings" style="display:grid; gap:12px; max-width:640px;">
                     <input type="hidden" name="action" value="save_shares" />
-                    <label for="share_price_1" style="font-weight:700;">قیمت 1 سهم</label>
+                    <label for="share_price_1" style="font-weight:700;">????? 1 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_1" name="share_price_1" value="<?php echo htmlspecialchars((string)($sharesConfig[1] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_2" style="font-weight:700;">قیمت 2 سهم</label>
+                    <label for="share_price_2" style="font-weight:700;">????? 2 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_2" name="share_price_2" value="<?php echo htmlspecialchars((string)($sharesConfig[2] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_3" style="font-weight:700;">قیمت 3 سهم</label>
+                    <label for="share_price_3" style="font-weight:700;">????? 3 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_3" name="share_price_3" value="<?php echo htmlspecialchars((string)($sharesConfig[3] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
-                    <label for="share_price_4" style="font-weight:700;">قیمت 4 سهم</label>
+                    <label for="share_price_4" style="font-weight:700;">????? 4 ???? (?????)</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_4" name="share_price_4" value="<?php echo htmlspecialchars((string)($sharesConfig[4] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
                     <div>
-                        <button class="btn" type="submit">ذخیره تعرفه ها</button>
+                        <button class="btn" type="submit">????? ثبت</button>
                     </div>
                 </form>
             </div>
-            <div id="participants" class="card tab-section">
+            <div id="participants" class="card tab-section active">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
+                    <div class="count-box">
+                        <span>تعداد ثبت نامی ها</span>
+                        <b><?php echo fa_digits(number_format($count)); ?></b>
+                    </div>
                 </div>
                 <!--
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
@@ -965,7 +816,66 @@ $count = count($participants);
                 </div>
             </div>
 
-            <!-- Archive List -->
+            <div id="bracketing" class="card tab-section" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">براکت بندی</h2>
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+                    <button type="button" class="btn" id="bracket-step-1">براکت تک سهمی</button>
+                    <button type="button" class="btn" id="bracket-step-2" disabled>براکت دو سهمی</button>
+                    <button type="button" class="btn" id="bracket-step-3" disabled>براکت سه سهمی</button>
+                    <button type="button" class="btn" id="bracket-step-4" disabled>براکت چهارسهمی</button>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
+                    <button type="button" class="btn btn-minimal" id="bracket-reset" disabled>باز نشانی</button>
+                    <button type="button" class="btn btn-minimal" id="bracket-export" disabled>خروجی</button>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
+                    <button type="button" class="btn btn-minimal" id="bracket-shuffle" disabled>شافل</button>
+                    <button type="button" class="btn btn-minimal" id="bracket-finalize" disabled>براکت بندی</button>
+                </div>
+                <div style="margin-top:20px;">
+                    <?php $bracketStages = ['تک سهمی','دو سهمی','سه سهمی','چهارسهمی']; ?>
+                    <div class="header-row" style="margin-bottom:12px;">
+                        <h1 class="title" style="margin:0; font-size:18px;">لیست ثبت نامی ها</h1>
+                        <form style="display:flex; gap:8px; align-items:center;">
+                            <input class="ctrl" type="search" placeholder="جستجو ..." style="min-width:220px;" />
+                        </form>
+                    </div>
+                    <div class="bracket-tabs" id="bracket-stage-tabs">
+                        <?php foreach ($bracketStages as $stageIndex => $label): ?>
+                            <button type="button" class="btn btn-minimal bracket-stage-tab<?php if ($stageIndex === 0) echo ' active'; ?>" data-stage-tab="<?php echo $stageIndex + 1; ?>">
+                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="bracket-stage-panels">
+                        <?php foreach ($bracketStages as $stageIndex => $label): ?>
+                            <div class="bracket-panel<?php if ($stageIndex === 0) echo ' active'; ?>" data-stage-panel="<?php echo $stageIndex + 1; ?>">
+                                <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
+                                    <div style="background:#f8fafc; padding:10px 14px; font-weight:700;">
+                                        <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                                    </div>
+                                    <div style="overflow:auto;">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>نام کامل</th>
+                                                    <th>تعداد سهم</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="bracket-stage-body-<?php echo $stageIndex + 1; ?>" data-stage-table="<?php echo $stageIndex + 1; ?>">
+                                                <tr>
+                                                    <td colspan="2" class="muted" style="text-align:center;">لیست خالی است.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+<!-- Archive List -->
             <div id="archive" class="card tab-section" style="margin-top:16px;">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست آرشیو</h1>
@@ -1040,35 +950,18 @@ $count = count($participants);
           var sec = document.getElementById(id);
           if(sec){ sections[id]=sec; }
         });
-        var telegramSection = document.getElementById('telegram-settings');
-        if (telegramSection) {
-          sections['telegram-settings'] = telegramSection;
-        }
-        function normalizeId(id){
-          if(id === 'telegram-settings'){ return 'notification-settings'; }
-          return id;
-        }
         function activate(id){
-          var normId = normalizeId(id);
-          Object.keys(sections).forEach(function(k){
-            var shouldShow = (k === normId) || (normId === 'notification-settings' && k === 'telegram-settings');
-            sections[k].classList.toggle('active', shouldShow);
-          });
-          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+normId); });
-          try{ history.replaceState(null,'','#'+normId); }catch(e){}
+          Object.keys(sections).forEach(function(k){ sections[k].classList.toggle('active', k===id); });
+          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+id); });
+          try{ history.replaceState(null,'','#'+id); }catch(e){}
         }
-        var initial = (location.hash||'#dashboard').slice(1);
-        var normInitial = normalizeId(initial);
-        if(!sections[normInitial]){ normInitial = Object.keys(sections)[0] || null; }
-        if(normInitial){ activate(normInitial); }
+        var initial = (location.hash||'#participants').slice(1);
+        if(!sections[initial]){ initial = Object.keys(sections)[0] || null; }
+        if(initial){ activate(initial); }
         links.forEach(function(a){
           a.addEventListener('click', function(ev){ ev.preventDefault(); activate((this.getAttribute('href')||'').slice(1)); });
         });
-        window.addEventListener('hashchange', function(){
-          var id=(location.hash||'').slice(1);
-          var normId = normalizeId(id);
-          if(sections[normId]) activate(normId);
-        });
+        window.addEventListener('hashchange', function(){ var id=(location.hash||'').slice(1); if(sections[id]) activate(id); });
       })();
     </script>
     <script>
@@ -1274,7 +1167,7 @@ $count = count($participants);
         }
         if (from) from.addEventListener('change', enforceOrder);
         if (to)   to.addEventListener('change',   enforceOrder);
-        var countBox = document.querySelector('#participants .count-box b');
+        var countBox = document.querySelector('.count-box b');
 
         function params(){
           var p = new URLSearchParams();
@@ -1424,6 +1317,25 @@ $count = count($participants);
         function selectedTags(){
           return Array.from(document.querySelectorAll('#rowsBody .row-check:checked')).map(function(cb){ return cb.value; });
         }
+        function setActiveStage(stageIndex){
+          var stageKey = String(stageIndex);
+          document.querySelectorAll('.bracket-stage-tab').forEach(function(tab){
+            tab.classList.toggle('active', tab.dataset.stageTab === stageKey);
+          });
+          document.querySelectorAll('[data-stage-panel]').forEach(function(panel){
+            panel.classList.toggle('active', panel.dataset.stagePanel === stageKey);
+          });
+        }
+        function wireStageTabs(){
+          document.querySelectorAll('.bracket-stage-tab').forEach(function(tab){
+            tab.addEventListener('click', function(){
+              var stageIndex = parseInt(tab.dataset.stageTab, 10);
+              if (isNaN(stageIndex)) { return; }
+              loadStage(stageIndex);
+            });
+          });
+        }
+        wireStageTabs();
         function updateBulkState(){
           var tags = selectedTags();
           var c = document.getElementById('bulkCount'); var btn = document.getElementById('bulkApply');
@@ -1453,6 +1365,117 @@ $count = count($participants);
         ensureHeader();
         convertTreeToFa(document.body);
         refresh();
+      })();
+    </script>
+    <script>
+      (function(){
+        var steps = ['bracket-step-1','bracket-step-2','bracket-step-3','bracket-step-4'].map(function(id){
+          return document.getElementById(id);
+        });
+        if (steps.some(function(btn){ return !btn; })) {
+          return;
+        }
+        var resetBtn = document.getElementById('bracket-reset');
+        var outputBtn = document.getElementById('bracket-export');
+        var shuffleBtn = document.getElementById('bracket-shuffle');
+        var finalizeBtn = document.getElementById('bracket-finalize');
+        if (!resetBtn || !outputBtn || !shuffleBtn || !finalizeBtn) {
+          return;
+        }
+        var stageTables = {};
+        document.querySelectorAll('[data-stage-table]').forEach(function(tb){
+          stageTables[tb.dataset.stageTable] = tb;
+        });
+        var stageCache = {};
+        function escapeHtml(str){
+          return String(str || '').replace(/[&<>"']/g, function(chr){
+            return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[chr] || chr;
+          });
+        }
+        function renderStageRows(stageIndex, rows){
+          var tbody = stageTables[stageIndex];
+          if(!tbody){ return; }
+          if(!Array.isArray(rows) || rows.length === 0){
+            tbody.innerHTML = '<tr><td colspan=\"2\" class=\"muted\" style=\"text-align:center;\">لیست خالی است.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows.map(function(row){
+            return '<tr><td>' + escapeHtml(row.fullname) + '</td><td>' + escapeHtml(row.tickets) + '</td></tr>';
+          }).join('');
+        }
+        async function loadStage(stageIndex){
+          if(stageCache[stageIndex]){
+            renderStageRows(stageIndex, stageCache[stageIndex]);
+            return;
+          }
+          try{
+            var res = await fetch('panel.php?bracket_action=stage&stage=' + stageIndex, {credentials:'same-origin', cache:'no-store'});
+            if(!res.ok){ throw new Error('status ' + res.status); }
+            var data = await res.json();
+            if(data && data.ok && Array.isArray(data.rows)){
+              stageCache[stageIndex] = data.rows;
+              renderStageRows(stageIndex, data.rows);
+            } else {
+              renderStageRows(stageIndex, []);
+            }
+          } catch(e){
+            console.error('Bracket stage load failed', e);
+            renderStageRows(stageIndex, []);
+          }
+          setActiveStage(stageIndex);
+        }
+        var completed = new Array(steps.length).fill(false);
+        function updateResetState(){
+          resetBtn.disabled = !completed.some(function(value){ return value; });
+        }
+        function updateOutputState(){
+          outputBtn.disabled = completed.some(function(value){ return !value; });
+        }
+        function setThirdRow(active){
+          shuffleBtn.disabled = !active;
+          finalizeBtn.disabled = !active;
+        }
+        function resetFlow(){
+          completed = new Array(steps.length).fill(false);
+          steps.forEach(function(btn, index){
+            btn.disabled = index !== 0;
+          });
+          stageCache = {};
+          renderStageRows(1, []);
+          renderStageRows(2, []);
+          renderStageRows(3, []);
+          renderStageRows(4, []);
+          updateResetState();
+          updateOutputState();
+          setThirdRow(false);
+          setActiveStage(1);
+        }
+        steps.forEach(function(btn, index){
+          btn.addEventListener('click', function(){
+            if (btn.disabled) {
+              return;
+            }
+            completed[index] = true;
+            btn.disabled = true;
+            var next = steps[index + 1];
+            if (next) {
+              next.disabled = false;
+            }
+            updateResetState();
+            updateOutputState();
+            loadStage(index + 1);
+          });
+        });
+        resetBtn.addEventListener('click', function(){
+          resetFlow();
+        });
+        outputBtn.addEventListener('click', function(){
+          if (outputBtn.disabled) {
+            return;
+          }
+          setThirdRow(true);
+        });
+        resetFlow();
       })();
     </script>
 </body>
