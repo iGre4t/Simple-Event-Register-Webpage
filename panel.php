@@ -539,6 +539,23 @@ $count = count($participants);
             gap: 8px;
             flex-wrap: wrap;
             margin-top: 16px;
+            margin-bottom: 18px;
+        }
+        .bracket-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 1024px){
+            .bracket-actions-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        .bracket-actions-grid button {
+            width: 100%;
+            padding: 12px 0;
         }
         .bracket-tabs button {
             border: 1px solid #e2e8f0;
@@ -559,6 +576,54 @@ $count = count($participants);
         }
         .bracket-stage-panels > .bracket-panel.active {
             display: block;
+        }
+        .bracket-stage-grid {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .bracket-stage-grid-header {
+            background: #f8fafc;
+            padding: 10px 14px;
+            font-weight: 700;
+        }
+        .bracket-stage-grid-body {
+            padding: 16px;
+        }
+        .bracket-stage-grid-list {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        @media (min-width: 1280px){
+            .bracket-stage-grid-list {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+        .bracket-stage-grid-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .bracket-stage-grid-item-name {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .bracket-stage-grid-item-meta {
+            color: #475569;
+            font-size: 13px;
+        }
+        .bracket-stage-grid-empty {
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+            width: 100%;
         }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
@@ -608,6 +673,7 @@ $count = count($participants);
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#bracketing"><i data-feather="layout"></i><span>براکت بندی</span></a>
+                <a href="#brackets"><i data-feather="grid"></i><span>براکت ها</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
             </nav>
             <div class="side-bottom">
@@ -622,6 +688,7 @@ $count = count($participants);
                 <a href="#notification-settings">تنظیمات اعلانیه</a>
                 <a href="#participants" class="active">لیست ثبت نامی ها</a>
                 <a href="#bracketing">براکت بندی</a>
+                <a href="#brackets">براکت ها</a>
                 <a href="#archive">لیست آرشیو</a>
             </nav>
             <div class="side-bottom">
@@ -714,9 +781,9 @@ $count = count($participants);
                 <!--
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 -->
-                <div class="filters">
+                    <div class="filters">
                     <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
-                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو ">
+                        <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو">
                         <select class="ctrl" name="sort">
                             <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
                             <option value="date_asc"  <?php if($sort==='date_asc')  echo 'selected'; ?>>بر اساس تاریخ اولین تا آخرین</option>
@@ -818,17 +885,13 @@ $count = count($participants);
 
             <div id="bracketing" class="card tab-section" style="margin-bottom:16px;">
                 <h2 class="title" style="margin-top:0">براکت بندی</h2>
-                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+                <div class="bracket-actions-grid">
                     <button type="button" class="btn" id="bracket-step-1">براکت تک سهمی</button>
                     <button type="button" class="btn" id="bracket-step-2" disabled>براکت دو سهمی</button>
                     <button type="button" class="btn" id="bracket-step-3" disabled>براکت سه سهمی</button>
                     <button type="button" class="btn" id="bracket-step-4" disabled>براکت چهارسهمی</button>
-                </div>
-                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
                     <button type="button" class="btn btn-minimal" id="bracket-reset" disabled>باز نشانی</button>
                     <button type="button" class="btn btn-minimal" id="bracket-export" disabled>خروجی</button>
-                </div>
-                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
                     <button type="button" class="btn btn-minimal" id="bracket-shuffle" disabled>شافل</button>
                     <button type="button" class="btn btn-minimal" id="bracket-finalize" disabled>براکت بندی</button>
                 </div>
@@ -836,9 +899,6 @@ $count = count($participants);
                     <?php $bracketStages = ['تک سهمی','دو سهمی','سه سهمی','چهارسهمی']; ?>
                     <div class="header-row" style="margin-bottom:12px;">
                         <h1 class="title" style="margin:0; font-size:18px;">لیست ثبت نامی ها</h1>
-                        <form style="display:flex; gap:8px; align-items:center;">
-                            <input class="ctrl" type="search" placeholder="جستجو ..." style="min-width:220px;" />
-                        </form>
                     </div>
                     <div class="bracket-tabs" id="bracket-stage-tabs">
                         <?php foreach ($bracketStages as $stageIndex => $label): ?>
@@ -850,30 +910,24 @@ $count = count($participants);
                     <div class="bracket-stage-panels">
                         <?php foreach ($bracketStages as $stageIndex => $label): ?>
                             <div class="bracket-panel<?php if ($stageIndex === 0) echo ' active'; ?>" data-stage-panel="<?php echo $stageIndex + 1; ?>">
-                                <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
-                                    <div style="background:#f8fafc; padding:10px 14px; font-weight:700;">
+                                <div class="bracket-stage-grid">
+                                    <div class="bracket-stage-grid-header">
                                         <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
                                     </div>
-                                    <div style="overflow:auto;">
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>نام کامل</th>
-                                                    <th>تعداد سهم</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="bracket-stage-body-<?php echo $stageIndex + 1; ?>" data-stage-table="<?php echo $stageIndex + 1; ?>">
-                                                <tr>
-                                                    <td colspan="2" class="muted" style="text-align:center;">لیست خالی است.</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                    <div class="bracket-stage-grid-body">
+                                        <div class="bracket-stage-grid-list" id="bracket-stage-body-<?php echo $stageIndex + 1; ?>" data-stage-table="<?php echo $stageIndex + 1; ?>">
+                                            <div class="bracket-stage-grid-empty">لیست خالی است.</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
+            </div>
+            <div id="brackets" class="card tab-section" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">براکت ها</h2>
+                <!-- Content will be added later -->
             </div>
 <!-- Archive List -->
             <div id="archive" class="card tab-section" style="margin-top:16px;">
@@ -1090,6 +1144,12 @@ $count = count($participants);
         var q = formFilter.querySelector('input[name="q"]');
         var sort = formFilter.querySelector('select[name="sort"]');
         var tickets = formExport.querySelector('select[name="tickets"]');
+        if (formFilter) {
+          formFilter.addEventListener('submit', function(ev){
+            ev.preventDefault();
+            refresh();
+          });
+        }
         // Enhance date fields: add Shamsi inputs and hidden Gregorian values
         (function enhanceShamsi(){
           if(!formExport) return;
@@ -1331,6 +1391,7 @@ $count = count($participants);
             tab.addEventListener('click', function(){
               var stageIndex = parseInt(tab.dataset.stageTab, 10);
               if (isNaN(stageIndex)) { return; }
+              setActiveStage(stageIndex);
               loadStage(stageIndex);
             });
           });
@@ -1393,19 +1454,40 @@ $count = count($participants);
           });
         }
         function renderStageRows(stageIndex, rows){
-          var tbody = stageTables[stageIndex];
-          if(!tbody){ return; }
+          var container = stageTables[stageIndex];
+          if(!container){ return; }
           if(!Array.isArray(rows) || rows.length === 0){
-            tbody.innerHTML = '<tr><td colspan=\"2\" class=\"muted\" style=\"text-align:center;\">لیست خالی است.</td></tr>';
+            container.innerHTML = '<div class="bracket-stage-grid-empty">لیست خالی است.</div>';
             return;
           }
-          tbody.innerHTML = rows.map(function(row){
-            return '<tr><td>' + escapeHtml(row.fullname) + '</td><td>' + escapeHtml(row.tickets) + '</td></tr>';
+          container.innerHTML = rows.map(function(row){
+            return '<div class="bracket-stage-grid-item">' +
+                    '<div class="bracket-stage-grid-item-name">' + escapeHtml(row.fullname) + '</div>' +
+                    '<div class="bracket-stage-grid-item-meta">تعداد سهم: ' + escapeHtml(row.tickets) + '</div>' +
+                  '</div>';
           }).join('');
+        }
+        function shuffleArray(arr){
+          for (var i = arr.length - 1; i > 0; i--){
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+          }
+        }
+        function shuffleStageLists(){
+          Object.keys(stageCache).forEach(function(stageKey){
+            var records = stageCache[stageKey];
+            if(Array.isArray(records) && records.length > 1){
+              shuffleArray(records);
+              renderStageRows(stageKey, records);
+            }
+          });
         }
         async function loadStage(stageIndex){
           if(stageCache[stageIndex]){
             renderStageRows(stageIndex, stageCache[stageIndex]);
+            setActiveStage(stageIndex);
             return;
           }
           try{
@@ -1474,6 +1556,12 @@ $count = count($participants);
             return;
           }
           setThirdRow(true);
+        });
+        shuffleBtn.addEventListener('click', function(){
+          if (shuffleBtn.disabled) {
+            return;
+          }
+          shuffleStageLists();
         });
         resetFlow();
       })();
