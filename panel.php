@@ -492,6 +492,68 @@ if (isset($_GET['bracket_action'])) {
 }
 
 $bracketLibrary = read_bracket_library();
+$competitionMatches = [];
+foreach ($bracketLibrary as $eventEntry) {
+    $slug = (string)($eventEntry['slug'] ?? '');
+    if ($slug === '') {
+        continue;
+    }
+    $rawStages = is_array($eventEntry['stages']) ? $eventEntry['stages'] : [];
+    $stageKeys = array_keys($rawStages);
+    usort($stageKeys, function($a, $b){ return intval($a) <=> intval($b); });
+    $stageLabels = [];
+    foreach ($stageKeys as $stageKey) {
+        $label = (string)($rawStages[$stageKey]['label'] ?? '');
+        if ($label !== '') {
+            $stageLabels[] = $label;
+        }
+    }
+    if (empty($stageLabels)) {
+        $stageLabels[] = 'مرحله اول';
+    }
+    $initialStageKey = $stageKeys[0] ?? $stageKeys['0'] ?? null;
+    $stageOne = null;
+    if ($initialStageKey !== null && isset($rawStages[$initialStageKey])) {
+        $stageOne = $rawStages[$initialStageKey];
+    }
+    if (empty($stageOne['brackets']) || !is_array($stageOne['brackets'])) {
+        continue;
+    }
+    $initialMatches = [];
+    foreach ($stageOne['brackets'] as $bracketInfo) {
+        $relative = (string)($bracketInfo['path'] ?? '');
+        $fullPath = ($slug !== '' && $relative !== '') ? STORAGE_DIR . DIRECTORY_SEPARATOR . $slug . DIRECTORY_SEPARATOR . $relative : '';
+        $rows = read_bracket_csv($fullPath);
+        for ($i = 0; $i < count($rows); $i += 2) {
+            $players = [];
+            for ($p = 0; $p < 2; $p++) {
+                $row = $rows[$i + $p] ?? null;
+                $players[] = [
+                    'name' => $row ? ($row['fullname'] ?? '') : '',
+                    'position' => $row ? ((int)($row['position'] ?? ($i + $p + 1))) : 0,
+                ];
+            }
+            $initialMatches[] = [
+                'bracket' => (int)($bracketInfo['number'] ?? 0),
+                'match' => count($initialMatches) + 1,
+                'players' => $players,
+            ];
+        }
+    }
+    if (empty($initialMatches)) {
+        continue;
+    }
+    $competitionMatches[] = [
+        'slug' => $slug,
+        'name' => (string)($eventEntry['name'] ?? 'رویداد بی‌نام'),
+        'created_at' => (int)($eventEntry['created_at'] ?? time()),
+        'bracket_size' => (int)($eventEntry['bracket_size'] ?? 0),
+        'finalists' => (int)($eventEntry['finalists'] ?? 0),
+        'stageLabels' => $stageLabels,
+        'initialMatchCount' => count($initialMatches),
+        'matches' => $initialMatches,
+    ];
+}
 
 // If not logged in, show login form
 if (!($_SESSION['is_admin'] ?? false)) {
@@ -1064,6 +1126,7 @@ $count = count($participants);
                 <a href="#participants" class="active"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#bracketing"><i data-feather="layout"></i><span>براکت بندی</span></a>
                 <a href="#brackets"><i data-feather="grid"></i><span>براکت ها</span></a>
+                <a href="#competitions"><i data-feather="trophy"></i><span>رقابت ها</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
             </nav>
             <div class="side-bottom">
@@ -2214,6 +2277,7 @@ $count = count($participants);
     </script>
 </body>
 </html>
+
 
 
 

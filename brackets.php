@@ -149,28 +149,56 @@ function getMatchRowIndex(int $roundIndex, int $matchIndex): int
             padding-right: 3rem;
         }
 
-        .match-slot.pair-top::after,
-        .match-slot.pair-bottom::before {
+        .match-slot::before {
             content: "";
             position: absolute;
             right: 1rem;
             width: 1px;
             background: var(--border);
             opacity: 0.8;
+            height: calc(var(--row-diff) * var(--slot-step) / 2);
         }
 
-        .match-slot.pair-top::after {
+        .match-slot.pair-top::before {
             top: 50%;
-            height: calc(var(--slot-step) * var(--row-diff));
         }
 
         .match-slot.pair-bottom::before {
             bottom: 50%;
-            height: calc(var(--slot-step) * var(--row-diff));
         }
 
-        .match-slot.round-final-slot::before,
-        .match-slot.round-final-slot::after {
+        .match-slot::after {
+            content: "";
+            position: absolute;
+            right: -2.5rem;
+            width: 3rem;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--brand));
+            opacity: 0.9;
+            top: calc(50% + var(--horizontal-offset, 0px));
+            transform: translateY(-50%);
+            display: none;
+        }
+
+        .match-slot.pair-bottom::after {
+            display: block;
+        }
+
+        .match-slot.round-final-slot::before {
+            display: none;
+        }
+
+        .connector-horizontal {
+            position: absolute;
+            left: calc(100% - 1rem);
+            width: 3rem;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--brand));
+            opacity: 0.9;
+            transform: translateY(-50%);
+        }
+
+        .round:last-child .connector-horizontal {
             display: none;
         }
 
@@ -186,6 +214,18 @@ function getMatchRowIndex(int $roundIndex, int $matchIndex): int
             gap: 0.2rem;
             position: relative;
             overflow: hidden;
+        }
+
+        .round:not(:first-child) .match-card::before {
+            content: "";
+            position: absolute;
+            left: -1rem;
+            top: 50%;
+            width: 1px;
+            height: calc(var(--slot-step) / 2);
+            background: var(--border);
+            opacity: 0.8;
+            transform: translateY(-50%);
         }
 
         .match-card::after {
@@ -270,9 +310,15 @@ function getMatchRowIndex(int $roundIndex, int $matchIndex): int
                         $isFinalRound = $roundIndex === $roundCount - 1;
                         $pairClass = ($matchIndex % 2 === 0) ? 'pair-top' : 'pair-bottom';
                         $slotClass = trim("match-slot {$pairClass}" . ($isFinalRound ? ' round-final-slot' : ''));
+                        $slotStyle = "--row-index: {$rowIndex}; --row-diff: {$step};";
+                        if ($pairClass === 'pair-bottom' && !$isFinalRound) {
+                            $connectorRow = $rowIndex - ($step / 2);
+                            $delta = $connectorRow - $rowIndex;
+                            $slotStyle .= " --horizontal-offset: calc({$delta} * var(--slot-step));";
+                        }
                     ?>
                         <div class="<?php echo $slotClass; ?>"
-                             style="--row-index: <?php echo $rowIndex; ?>; --row-diff: <?php echo $step; ?>;">
+                             style="<?php echo $slotStyle; ?>">
                             <div class="match-card<?php echo $isFinalRound ? ' round-card-final' : ''; ?>">
                                 <strong><?php echo $match['teamA']; ?></strong>
                                 <span><?php echo $match['teamB']; ?></span>
