@@ -1,0 +1,119 @@
+[
+    {
+        "slug": "سوپرکاپ-ششم",
+        "name": "سوپرکاپ ششم",
+        "bracket_size": 16,
+        "finalists": 2,
+        "created_at": 1764939372,
+        "stages": {
+            "1": {
+                "label": "تک سهمی",
+                "total": 77,
+                "brackets": [
+                    {
+                        "name": "01-01-bracket.csv",
+                        "path": "Brackets\/01-01-bracket.csv",
+                        "entries": 16,
+                        "number": 1
+                    },
+                    {
+                        "name": "01-02-bracket.csv",
+                        "path": "Brackets\/01-02-bracket.csv",
+                        "entries": 16,
+                        "number": 2
+                    },
+                    {
+                        "name": "01-03-bracket.csv",
+                        "path": "Brackets\/01-03-bracket.csv",
+                        "entries": 16,
+                        "number": 3
+                    },
+                    {
+                        "name": "01-04-bracket.csv",
+                        "path": "Brackets\/01-04-bracket.csv",
+                        "entries": 16,
+                        "number": 4
+                    },
+                    {
+                        "name": "01-05-bracket.csv",
+                        "path": "Brackets\/01-05-bracket.csv",
+                        "entries": 13,
+                        "number": 5
+                    }
+                ]
+            },
+            "2": {
+                "label": "دو سهمی",
+                "total": 53,
+                "brackets": [
+                    {
+                        "name": "02-01-bracket.csv",
+                        "path": "Brackets\/02-01-bracket.csv",
+                        "entries": 16,
+                        "number": 1
+                    },
+                    {
+                        "name": "02-02-bracket.csv",
+                        "path": "Brackets\/02-02-bracket.csv",
+                        "entries": 16,
+                        "number": 2
+                    },
+                    {
+                        "name": "02-03-bracket.csv",
+                        "path": "Brackets\/02-03-bracket.csv",
+                        "entries": 16,
+                        "number": 3
+                    },
+                    {
+                        "name": "02-04-bracket.csv",
+                        "path": "Brackets\/02-04-bracket.csv",
+                        "entries": 5,
+                        "number": 4
+                    }
+                ]
+            },
+            "3": {
+                "label": "سه سهمی",
+                "total": 35,
+                "brackets": [
+                    {
+                        "name": "03-01-bracket.csv",
+                        "path": "Brackets\/03-01-bracket.csv",
+                        "entries": 16,
+                        "number": 1
+                    },
+                    {
+                        "name": "03-02-bracket.csv",
+                        "path": "Brackets\/03-02-bracket.csv",
+                        "entries": 16,
+                        "number": 2
+                    },
+                    {
+                        "name": "03-03-bracket.csv",
+                        "path": "Brackets\/03-03-bracket.csv",
+                        "entries": 3,
+                        "number": 3
+                    }
+                ]
+            },
+            "4": {
+                "label": "چهارسهمی",
+                "total": 31,
+                "brackets": [
+                    {
+                        "name": "04-01-bracket.csv",
+                        "path": "Brackets\/04-01-bracket.csv",
+                        "entries": 16,
+                        "number": 1
+                    },
+                    {
+                        "name": "04-02-bracket.csv",
+                        "path": "Brackets\/04-02-bracket.csv",
+                        "entries": 15,
+                        "number": 2
+                    }
+                ]
+            }
+        }
+    }
+]

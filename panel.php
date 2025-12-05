@@ -2,6 +2,7 @@
 session_start();
 // Ensure UTF-8 output to avoid mojibake
 header('Content-Type: text/html; charset=UTF-8');
+define('STORAGE_DIR', __DIR__ . DIRECTORY_SEPARATOR . 'storage');
 
 // Very simple credentials per request
 $ADMIN_USER = 'admin';
@@ -117,7 +118,7 @@ function shamsi_datetime(string $dateString): string {
 
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
-    $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+    $base = STORAGE_DIR;
     $all = [];
     for ($n = 1; $n <= 4; $n++) {
         $file = $base . DIRECTORY_SEPARATOR . $n . ' tickets.csv';
@@ -196,6 +197,95 @@ function read_participants(): array {
     return $all;
 }
 
+$BRACKET_STAGE_LABELS = ['تک سهمی','دو سهمی','سه سهمی','چهارسهمی'];
+$BRACKET_STAGE_DEFS = [
+    1 => ['name' => $BRACKET_STAGE_LABELS[0], 'file' => '1stLevel.csv'],
+    2 => ['name' => $BRACKET_STAGE_LABELS[1], 'file' => '2ndLevel.csv'],
+    3 => ['name' => $BRACKET_STAGE_LABELS[2], 'file' => '3rdLevel.csv'],
+    4 => ['name' => $BRACKET_STAGE_LABELS[3], 'file' => '4thLevel.csv'],
+];
+
+function bracket_library_path(): string {
+    return STORAGE_DIR . DIRECTORY_SEPARATOR . 'bracket_library.json';
+}
+
+function read_bracket_library(): array {
+    $path = bracket_library_path();
+    if (!is_file($path)) {
+        return [];
+    }
+    $raw = @file_get_contents($path);
+    if ($raw === false) {
+        return [];
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function write_bracket_library(array $entries): bool {
+    $path = bracket_library_path();
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    return (bool)file_put_contents($path, json_encode(array_values($entries), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function sanitize_event_slug(string $value): string {
+    $slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', trim($value));
+    $slug = trim($slug, '-');
+    $slug = mb_strtolower($slug, 'UTF-8');
+    if ($slug === '') {
+        $slug = 'event-' . time();
+    }
+    return $slug;
+}
+
+function delete_directory_recursive(string $path): void {
+    if (!is_dir($path)) {
+        return;
+    }
+    $items = new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS);
+    foreach ($items as $item) {
+        if ($item->isDir()) {
+            delete_directory_recursive($item->getPathname());
+            @rmdir($item->getPathname());
+        } else {
+            @unlink($item->getPathname());
+        }
+    }
+}
+
+function read_bracket_csv(string $path): array {
+    $rows = [];
+    if (!is_file($path)) {
+        return $rows;
+    }
+    if (($fh = fopen($path, 'r')) === false) {
+        return $rows;
+    }
+    $header = fgetcsv($fh);
+    $map = [];
+    if (is_array($header)) {
+        foreach ($header as $idx => $key) {
+            $name = strtolower(trim((string)$key));
+            if ($name !== '') {
+                $map[$name] = $idx;
+            }
+        }
+    }
+    while (($row = fgetcsv($fh)) !== false) {
+        $rows[] = [
+            'fullname' => (string)($row[$map['fullname'] ?? 0] ?? ''),
+            'mobile' => (string)($row[$map['mobile'] ?? 1] ?? ''),
+            'tickets' => (int)($row[$map['tickets'] ?? 2] ?? 0),
+            'position' => (int)($row[$map['position'] ?? $map['seed'] ?? 5] ?? 0),
+        ];
+    }
+    fclose($fh);
+    return $rows;
+}
+
 if (isset($_GET['bracket_action'])) {
     header('Content-Type: application/json; charset=UTF-8');
     if (!($_SESSION['is_admin'] ?? false)) {
@@ -211,12 +301,8 @@ if (isset($_GET['bracket_action'])) {
             'tickets' => (int)($row['tickets'] ?? 0),
             'mobile' => (string)($row['mobile'] ?? ''),
         ]; }, $participants);
-        $stageDefs = [
-            1 => ['name' => 'مرحله اول',    'file' => '1stLevel.csv'],
-            2 => ['name' => 'مرحله دوم',    'file' => '2ndLevel.csv'],
-            3 => ['name' => 'مرحله سوم',    'file' => '3rdLevel.csv'],
-            4 => ['name' => 'مرحله چهارم', 'file' => '4thLevel.csv'],
-        ];
+        global $BRACKET_STAGE_DEFS;
+        $stageDefs = $BRACKET_STAGE_DEFS;
         $filter = function(int $tickets) use ($stage): bool {
             switch ($stage) {
                 case 2:
@@ -233,7 +319,7 @@ if (isset($_GET['bracket_action'])) {
         $filtered = array_values(array_filter($rows, function($row) use ($filter) {
             return $filter((int)($row['tickets'] ?? 0));
         }));
-        $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+        $storageDir = STORAGE_DIR;
         if (!is_dir($storageDir)) {
             @mkdir($storageDir, 0755, true);
         }
@@ -251,9 +337,161 @@ if (isset($_GET['bracket_action'])) {
         echo json_encode(['ok' => true, 'rows' => $filtered], JSON_UNESCAPED_UNICODE);
         exit;
     }
+    if ($action === 'finalize') {
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            echo json_encode(['ok' => false, 'message' => 'درخواست نامعتبر است.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $eventName = trim((string)($payload['eventName'] ?? ''));
+        $bracketSize = (int)($payload['bracketSize'] ?? 0);
+        $finalists = (int)($payload['finalists'] ?? 0);
+        $stagesPayload = $payload['stages'] ?? [];
+        $allowedSizes = [4,8,16,32,64,128,254];
+        if ($eventName === '') {
+            echo json_encode(['ok' => false, 'message' => 'نام مسابقات باید وارد شود.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        if (!in_array($bracketSize, $allowedSizes, true)) {
+            echo json_encode(['ok' => false, 'message' => 'اندازه براکت نامعتبر است.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $finalistOptions = [1];
+        $maxEven = (int)floor($bracketSize / 2);
+        for ($i = 2; $i <= $maxEven; $i += 2) {
+            $finalistOptions[] = $i;
+        }
+        if (!in_array($finalists, $finalistOptions, true)) {
+            echo json_encode(['ok' => false, 'message' => 'تعداد فینالیست نامعتبر است.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        global $BRACKET_STAGE_DEFS;
+        $library = read_bracket_library();
+        $slugBase = sanitize_event_slug($eventName);
+        $existingSlugs = array_column($library, 'slug');
+        $slugCandidate = $slugBase;
+        $counter = 1;
+        while (in_array($slugCandidate, $existingSlugs, true)) {
+            $counter++;
+            $slugCandidate = $slugBase . '-' . $counter;
+        }
+        $eventSlug = $slugCandidate;
+        $eventDir = STORAGE_DIR . DIRECTORY_SEPARATOR . $eventSlug;
+        if (!is_dir($eventDir)) {
+            @mkdir($eventDir, 0755, true);
+        }
+        $bracketsDir = $eventDir . DIRECTORY_SEPARATOR . 'Brackets';
+        if (is_dir($bracketsDir)) {
+            delete_directory_recursive($bracketsDir);
+            @rmdir($bracketsDir);
+        }
+        @mkdir($bracketsDir, 0755, true);
+        $eventStages = [];
+        foreach ($BRACKET_STAGE_DEFS as $stageIndex => $stageInfo) {
+            if (!array_key_exists($stageIndex, $stagesPayload)) {
+                echo json_encode(['ok' => false, 'message' => 'لیست مرحله کامل نشده است.'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            $inputRows = is_array($stagesPayload[$stageIndex]) ? array_values($stagesPayload[$stageIndex]) : [];
+            $sanitizedRows = [];
+            foreach ($inputRows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $sanitizedRows[] = [
+                    'fullname' => trim((string)($row['fullname'] ?? '')),
+                    'mobile' => trim((string)($row['mobile'] ?? '')),
+                    'tickets' => (int)($row['tickets'] ?? 0),
+                ];
+            }
+            $listPath = $eventDir . DIRECTORY_SEPARATOR . $stageIndex . ' tickets.csv';
+            $listHandle = @fopen($listPath, 'w');
+                if ($listHandle !== false) {
+                    fputcsv($listHandle, ['fullname', 'mobile', 'tickets', 'stage']);
+                    foreach ($sanitizedRows as $entry) {
+                        fputcsv($listHandle, [$entry['fullname'], $entry['mobile'], $entry['tickets'], $stageInfo['name']]);
+                    }
+                    fclose($listHandle);
+                }
+                $bracketChunks = array_chunk($sanitizedRows, $bracketSize);
+                $bracketFiles = [];
+                foreach ($bracketChunks as $chunkIndex => $chunkRows) {
+                    $bracketFileName = sprintf('%02d-%02d-bracket.csv', $stageIndex, $chunkIndex + 1);
+                    $bracketPath = $bracketsDir . DIRECTORY_SEPARATOR . $bracketFileName;
+                    $bracketHandle = @fopen($bracketPath, 'w');
+                    if ($bracketHandle !== false) {
+                        fputcsv($bracketHandle, ['fullname', 'mobile', 'tickets', 'stage', 'bracket', 'position']);
+                        foreach ($chunkRows as $entryIndex => $entry) {
+                            fputcsv($bracketHandle, [$entry['fullname'], $entry['mobile'], $entry['tickets'], $stageInfo['name'], $chunkIndex + 1, $entryIndex + 1]);
+                        }
+                        fclose($bracketHandle);
+                    }
+                $bracketFiles[] = [
+                    'name' => $bracketFileName,
+                    'path' => 'Brackets/' . $bracketFileName,
+                    'entries' => count($chunkRows),
+                    'number' => $chunkIndex + 1,
+                ];
+            }
+            $eventStages[$stageIndex] = [
+                'label' => $stageInfo['name'],
+                'total' => count($sanitizedRows),
+                'brackets' => $bracketFiles,
+            ];
+        }
+        $eventMeta = [
+            'slug' => $eventSlug,
+            'name' => $eventName,
+            'bracket_size' => $bracketSize,
+            'finalists' => $finalists,
+            'created_at' => time(),
+            'stages' => $eventStages,
+        ];
+        $updatedLibrary = array_values(array_filter($library, function($entry) use ($eventSlug) {
+            return ($entry['slug'] ?? '') !== $eventSlug;
+        }));
+        array_unshift($updatedLibrary, $eventMeta);
+        write_bracket_library($updatedLibrary);
+        echo json_encode(['ok' => true, 'message' => 'براکت بندی نهایی ذخیره شد.', 'slug' => $eventSlug], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if ($action === 'remove_event') {
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            echo json_encode(['ok' => false, 'message' => 'درخواست نامعتبر است.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $slug = trim((string)($payload['slug'] ?? ''));
+        if ($slug === '') {
+            echo json_encode(['ok' => false, 'message' => 'شناسه تورنمنت لازم است.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $library = read_bracket_library();
+        $exists = false;
+        $updatedLibrary = [];
+        foreach ($library as $entry) {
+            if (isset($entry['slug']) && $entry['slug'] === $slug) {
+                $exists = true;
+                continue;
+            }
+            $updatedLibrary[] = $entry;
+        }
+        if ($exists) {
+            $targetDir = STORAGE_DIR . DIRECTORY_SEPARATOR . $slug;
+            delete_directory_recursive($targetDir);
+            @rmdir($targetDir);
+            write_bracket_library($updatedLibrary);
+            echo json_encode(['ok' => true, 'message' => 'تورنمنت حذف شد.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        echo json_encode(['ok' => false, 'message' => 'تورنمنت یافت نشد.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     echo json_encode(['ok' => false, 'message' => 'Unknown action'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+$bracketLibrary = read_bracket_library();
 
 // If not logged in, show login form
 if (!($_SESSION['is_admin'] ?? false)) {
@@ -541,22 +779,6 @@ $count = count($participants);
             margin-top: 16px;
             margin-bottom: 18px;
         }
-        .bracket-actions-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 12px;
-            margin-bottom: 12px;
-        }
-        @media (max-width: 1024px){
-            .bracket-actions-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-        .bracket-actions-grid button {
-            width: 100%;
-            padding: 12px 0;
-        }
         .bracket-tabs button {
             border: 1px solid #e2e8f0;
             background: #ffffff;
@@ -576,6 +798,155 @@ $count = count($participants);
         }
         .bracket-stage-panels > .bracket-panel.active {
             display: block;
+        }
+        .bracket-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 1024px){
+            .bracket-actions-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        .bracket-actions-grid button {
+            width: 100%;
+            padding: 12px 0;
+        }
+        .bracket-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+        }
+        .bracket-modal.is-open {
+            display: flex;
+        }
+        .bracket-modal__backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+        }
+        .bracket-modal__box {
+            position: relative;
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            width: min(520px, 100%);
+            box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+            z-index: 1;
+            max-height: 90vh;
+            overflow:auto;
+        }
+        .bracket-modal__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .bracket-modal__header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .bracket-modal__body {
+            display: grid;
+            gap: 12px;
+        }
+        .bracket-modal__body label {
+            font-weight: 700;
+            font-size: 14px;
+            display: block;
+        }
+        .bracket-modal__actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
+        .bracket-modal__status {
+            font-size: 13px;
+            color: #0f172a;
+            min-height: 18px;
+        }
+        .bracket-event {
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .bracket-event__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .bracket-event__header strong {
+            color: #b91c1c;
+        }
+        .bracket-event__stage {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .bracket-stage-files {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .bracket-stage-file {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 120px;
+        }
+        .bracket-stage-file-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .bracket-stage-match-list {
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .bracket-stage-match {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 4px;
+        }
+        .bracket-stage-match-label {
+            font-size: 12px;
+            color: #475569;
+            margin-bottom: 4px;
+        }
+        .bracket-stage-match-participants {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 13px;
+        }
+        .bracket-stage-empty {
+            color: #64748b;
+            font-size: 13px;
+            text-align: center;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px dashed #cbd5f5;
         }
         .bracket-stage-grid {
             border: 1px solid #e2e8f0;
@@ -624,6 +995,25 @@ $count = count($participants);
             color: #64748b;
             font-size: 14px;
             width: 100%;
+        }
+        .bracket-events {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-top: 12px;
+        }
+        .bracket-event {
+            border-radius: 16px;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+        }
+        .bracket-event__header strong {
+            font-size: 18px;
+        }
+        .bracket-event__stage {
+            margin-top: 12px;
         }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
@@ -896,7 +1286,7 @@ $count = count($participants);
                     <button type="button" class="btn btn-minimal" id="bracket-finalize" disabled>براکت بندی</button>
                 </div>
                 <div style="margin-top:20px;">
-                    <?php $bracketStages = ['تک سهمی','دو سهمی','سه سهمی','چهارسهمی']; ?>
+                    <?php $bracketStages = $BRACKET_STAGE_LABELS; ?>
                     <div class="header-row" style="margin-bottom:12px;">
                         <h1 class="title" style="margin:0; font-size:18px;">لیست ثبت نامی ها</h1>
                     </div>
@@ -923,11 +1313,119 @@ $count = count($participants);
                             </div>
                         <?php endforeach; ?>
                     </div>
+                    <div class="bracket-modal" id="bracket-modal" aria-hidden="true">
+                        <div class="bracket-modal__backdrop" data-modal-close></div>
+                        <div class="bracket-modal__box" role="dialog" aria-modal="true" aria-labelledby="bracket-modal-title">
+                            <div class="bracket-modal__header">
+                                <h3 id="bracket-modal-title" class="title">تنظیمات براکت بندی نهایی</h3>
+                                <button type="button" class="btn btn-minimal" data-modal-close style="padding:4px 10px;">×</button>
+                            </div>
+                            <div class="bracket-modal__body">
+                                <label for="bracket-event-name">نام مسابقات</label>
+                                <input id="bracket-event-name" class="ctrl" type="text" placeholder="مثلاً سوپرکاپ سیسیلی" />
+                                <label for="bracket-size">اندازه هر براکت</label>
+                                <select id="bracket-size" class="ctrl">
+                                    <?php foreach ([4,8,16,32,64,128,254] as $size): ?>
+                                        <option value="<?php echo $size; ?>"><?php echo $size; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <label for="bracket-finalists">فینالیست ها از هر براکت</label>
+                                <select id="bracket-finalists" class="ctrl"></select>
+                                <div class="bracket-modal__status" id="bracket-modal-status"></div>
+                                <div class="bracket-modal__actions">
+                                    <button type="button" class="btn" id="bracket-modal-submit">براکت بندی نهایی</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="brackets" class="card tab-section" style="margin-bottom:16px;">
-                <h2 class="title" style="margin-top:0">براکت ها</h2>
-                <!-- Content will be added later -->
+                <div class="header-row">
+                    <h2 class="title" style="margin-top:0">براکت ها</h2>
+                </div>
+        <?php if (empty($bracketLibrary)): ?>
+            <div class="bracket-stage-empty" style="margin-top:12px;">هنوز براکتی ثبت نشده است.</div>
+        <?php else: ?>
+            <div class="bracket-events">
+                <?php foreach ($bracketLibrary as $event): ?>
+                    <div class="bracket-event">
+                        <div class="bracket-event__header">
+                            <div>
+                                <strong><?php echo htmlspecialchars($event['name'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                                <div style="font-size:13px; color:#475569;"><?php echo fa_digits(date('Y/m/d H:i', (int)($event['created_at'] ?? time()))); ?></div>
+                            </div>
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <span>اندازه براکت: <?php echo fa_digits((string)($event['bracket_size'] ?? '0')); ?></span>
+                                <span>فینالیست: <?php echo fa_digits((string)($event['finalists'] ?? '0')); ?></span>
+                                <?php if (!empty($event['slug'])): ?>
+                                    <button type="button" class="btn btn-minimal" data-delete-event="<?php echo htmlspecialchars($event['slug'], ENT_QUOTES, 'UTF-8'); ?>">حذف تورنمنت</button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                                <?php $eventSlug = (string)($event['slug'] ?? ''); ?>
+                                <?php $eventDir = $eventSlug !== '' ? STORAGE_DIR . DIRECTORY_SEPARATOR . $eventSlug : ''; ?>
+                                <?php if (!empty($event['stages']) && is_array($event['stages'])): ?>
+                                    <?php foreach ($event['stages'] as $stageIndex => $stage): ?>
+                                        <div class="bracket-event__stage">
+                                            <strong><?php echo htmlspecialchars($stage['label'] ?? ''); ?> (<?php echo fa_digits((string)($stage['total'] ?? '0')); ?>)</strong>
+                                            <?php if (!empty($stage['brackets']) && is_array($stage['brackets'])): ?>
+                                                <div class="bracket-stage-files">
+                                                    <?php foreach ($stage['brackets'] as $bracket): ?>
+                                                        <?php
+                                                            $bracketRelPath = (string)($bracket['path'] ?? '');
+                                                            $bracketFull = ($eventDir !== '' && $bracketRelPath !== '') ? $eventDir . DIRECTORY_SEPARATOR . $bracketRelPath : '';
+                                                            $bracketRows = $bracketFull !== '' ? read_bracket_csv($bracketFull) : [];
+                                                            $matches = [];
+                                                            for ($mi = 0; $mi < count($bracketRows); $mi += 2) {
+                                                                $matches[] = [
+                                                                    $bracketRows[$mi] ?? null,
+                                                                    $bracketRows[$mi + 1] ?? null,
+                                                                ];
+                                                            }
+                                                        ?>
+                                                        <div class="bracket-stage-file">
+                                                            <div class="bracket-stage-file-head">
+                                                                <span>براکت <?php echo fa_digits((string)($bracket['number'] ?? '0')); ?></span>
+                                                                <small>تعداد: <?php echo fa_digits((string)($bracket['entries'] ?? '0')); ?></small>
+                                                            </div>
+                                                            <span class="muted"><?php echo htmlspecialchars($bracketRelPath, ENT_QUOTES, 'UTF-8'); ?></span>
+                                                            <?php if (!empty($matches)): ?>
+                                                                <div class="bracket-stage-match-list">
+                                                                    <?php foreach ($matches as $matchIndex => $pair): ?>
+                                                                        <div class="bracket-stage-match">
+                                                                            <div class="bracket-stage-match-label">رقابت <?php echo fa_digits((string)($matchIndex + 1)); ?></div>
+                                                                            <div class="bracket-stage-match-participants">
+                                                                                <?php $left_idx = (int)($pair[0]['position'] ?? 0); ?>
+                                                                                <span><?php echo ($left_idx ? fa_digits((string)$left_idx) . '. ' : '') . htmlspecialchars((string)($pair[0]['fullname'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                                                                <?php if (!empty($pair[1])): ?>
+                                                                                    <?php $right_idx = (int)($pair[1]['position'] ?? 0); ?>
+                                                                                    <span><?php echo ($right_idx ? fa_digits((string)$right_idx) . '. ' : '') . htmlspecialchars((string)($pair[1]['fullname'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                                                                <?php else: ?>
+                                                                                    <span class="muted">حریف تک</span>
+                                                                                <?php endif; ?>
+                                                                            </div>
+                                                                        </div>
+                                                                    <?php endforeach; ?>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <div class="bracket-stage-empty">لیستی برای این براکت وجود ندارد.</div>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="bracket-stage-empty">براکتی ثبت نشده است.</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div class="bracket-stage-empty">هیچ داده‌ای برای این رویداد وجود ندارد.</div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
 <!-- Archive List -->
             <div id="archive" class="card tab-section" style="margin-top:16px;">
@@ -1386,6 +1884,7 @@ $count = count($participants);
             panel.classList.toggle('active', panel.dataset.stagePanel === stageKey);
           });
         }
+        window.setActiveStage = setActiveStage;
         function wireStageTabs(){
           document.querySelectorAll('.bracket-stage-tab').forEach(function(tab){
             tab.addEventListener('click', function(){
@@ -1447,6 +1946,8 @@ $count = count($participants);
         document.querySelectorAll('[data-stage-table]').forEach(function(tb){
           stageTables[tb.dataset.stageTable] = tb;
         });
+        var bracketStageLabels = <?php echo json_encode($bracketStages, JSON_UNESCAPED_UNICODE); ?>;
+        var stageActivator = typeof window.setActiveStage === 'function' ? window.setActiveStage : function(){};
         var stageCache = {};
         function escapeHtml(str){
           return String(str || '').replace(/[&<>"']/g, function(chr){
@@ -1563,7 +2064,152 @@ $count = count($participants);
           }
           shuffleStageLists();
         });
+        var bracketModal = document.getElementById('bracket-modal');
+        var bracketNameInput = document.getElementById('bracket-event-name');
+        var bracketSizeSelect = document.getElementById('bracket-size');
+        var bracketFinalistsSelect = document.getElementById('bracket-finalists');
+        var bracketStatus = document.getElementById('bracket-modal-status');
+        var bracketSubmit = document.getElementById('bracket-modal-submit');
+        function setBracketStatus(msg, isError){
+          if (!bracketStatus) return;
+          bracketStatus.textContent = msg || '';
+          bracketStatus.style.color = isError ? '#b91c1c' : '#0f172a';
+        }
+        function rebuildFinalistOptions(){
+          if (!bracketSizeSelect || !bracketFinalistsSelect) return;
+          var size = parseInt(bracketSizeSelect.value, 10) || 0;
+          bracketFinalistsSelect.innerHTML = '';
+          var option = document.createElement('option');
+          option.value = '1';
+          option.textContent = '1';
+          bracketFinalistsSelect.appendChild(option);
+          var limit = Math.floor(size / 2);
+          for (var n = 2; n <= limit; n += 2) {
+            var opt = document.createElement('option');
+            opt.value = String(n);
+            opt.textContent = String(n);
+            bracketFinalistsSelect.appendChild(opt);
+          }
+        }
+        function openBracketModal(){
+          if (!bracketModal) return;
+          bracketModal.classList.add('is-open');
+          bracketModal.setAttribute('aria-hidden','false');
+          setBracketStatus('');
+        }
+        function closeBracketModal(){
+          if (!bracketModal) return;
+          bracketModal.classList.remove('is-open');
+          bracketModal.setAttribute('aria-hidden','true');
+        }
+        function ensureStagesReady(){
+          for (var i=1; i<=bracketStageLabels.length; i++){
+            if (!Object.prototype.hasOwnProperty.call(stageCache, i)) {
+              alert('لطفاً لیست ' + (bracketStageLabels[i-1] || i) + ' را بارگذاری کنید.');
+              return false;
+            }
+          }
+          return true;
+        }
+        function buildBracketPayload(){
+          var eventName = bracketNameInput ? bracketNameInput.value.trim() : '';
+          if (!eventName) { setBracketStatus('نام مسابقات را وارد کنید.', true); return null; }
+          var size = bracketSizeSelect ? parseInt(bracketSizeSelect.value, 10) : 0;
+          if (!size) { setBracketStatus('اندازه براکت را انتخاب کنید.', true); return null; }
+          var finalists = bracketFinalistsSelect ? parseInt(bracketFinalistsSelect.value, 10) : 0;
+          var stages = {};
+          for (var j=1; j<=bracketStageLabels.length; j++){
+            stages[j] = stageCache[j] || [];
+          }
+          return {
+            eventName: eventName,
+            bracketSize: size,
+            finalists: finalists,
+            stages: stages,
+          };
+        }
+        function attachModalCloseers(){
+          if (!bracketModal) return;
+          bracketModal.querySelectorAll('[data-modal-close]').forEach(function(btn){
+            btn.addEventListener('click', function(){ closeBracketModal(); });
+          });
+        }
+        attachModalCloseers();
+        if (bracketSizeSelect) {
+          rebuildFinalistOptions();
+          bracketSizeSelect.addEventListener('change', rebuildFinalistOptions);
+        }
+        finalizeBtn.addEventListener('click', function(){
+          if (finalizeBtn.disabled) { return; }
+          if (!ensureStagesReady()) { return; }
+          openBracketModal();
+        });
+        if (bracketSubmit) {
+          bracketSubmit.addEventListener('click', async function(){
+            if (bracketSubmit.disabled) { return; }
+            var payload = buildBracketPayload();
+            if (!payload) { return; }
+            bracketSubmit.disabled = true;
+            setBracketStatus('در حال ذخیره‌ سازی...', false);
+            try {
+              var resp = await fetch('panel.php?bracket_action=finalize', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              var data = await resp.json();
+              if (data && data.ok) {
+                setBracketStatus(data.message || 'براکت‌ها ثبت شدند.', false);
+                setTimeout(function(){
+                  closeBracketModal();
+                  window.location.hash = '#brackets';
+                  window.location.reload();
+                }, 1300);
+              } else {
+                setBracketStatus((data && data.message) ? data.message : 'خطا در ثبت براکت بندی.', true);
+              }
+            } catch (e) {
+              console.error(e);
+              setBracketStatus('خطا در ارتباط با سرور.', true);
+            } finally {
+              bracketSubmit.disabled = false;
+            }
+          });
+        }
         resetFlow();
+        function wireDeleteButtons(){
+          document.querySelectorAll('[data-delete-event]').forEach(function(btn){
+            btn.addEventListener('click', async function(ev){
+              ev.preventDefault();
+              if (btn.disabled) return;
+              if (!confirm('آیا از حذف کامل این تورنمنت مطمئن هستید؟')) return;
+              var slug = btn.getAttribute('data-delete-event');
+              if (!slug) return;
+              btn.disabled = true;
+              try {
+                var resp = await fetch('panel.php?bracket_action=remove_event', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ slug: slug })
+                });
+                var data = await resp.json();
+                if (data && data.ok) {
+                  window.location.reload();
+                } else {
+                  alert((data && data.message) ? data.message : 'خطا در حذف تورنمنت.');
+                  btn.disabled = false;
+                }
+              } catch (err) {
+                console.error(err);
+                alert('خطا در ارتباط با سرور.');
+                btn.disabled = false;
+              }
+            });
+          });
+        }
+        wireDeleteButtons();
       })();
     </script>
 </body>
