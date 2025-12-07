@@ -1147,11 +1147,15 @@ $count = count($participants);
             <div id="participants" class="card tab-section">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
+                    <div class="count-box">
+                        <span>تعداد ثبت‌نامی‌ها</span>
+                        <b><?php echo fa_digits(number_format($count)); ?></b>
+                    </div>
                 </div>
                 <!--
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 -->
-                <div class="filters">
+                <div class="filters filters-archive">
                     <form method="get" class="filters__primary"><input type="hidden" value="1" />
                         <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو ">
                         <select class="ctrl" name="sort">
@@ -1177,8 +1181,8 @@ $count = count($participants);
                         <button class="btn" type="submit">خروجی CSV</button>
                     </form>
                 </div>
-                <div class="bulk-actions">
-                    <span class="muted" id="bulkCount">0 مورد انتخاب شده</span>
+                <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                    <span class="muted" id="bulkCount"><?php echo fa_digits('0'); ?> مورد انتخاب شده</span>
                     <select class="ctrl" id="bulkAction" style="max-width:200px;">
                         <option value="">اقدام گروهی</option>
                         <option value="archive">آرشیو</option>
@@ -1203,7 +1207,7 @@ $count = count($participants);
                         <tbody id="rowsBody">
                         <?php if (empty($participants)): ?>
                             <tr>
-                                <td colspan="5" class="muted">آیتمی در لیست یافت نشد.</td>
+                                <td colspan="9" class="muted">آیتمی در لیست یافت نشد.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($participants as $row): ?>
@@ -1219,11 +1223,11 @@ $count = count($participants);
                                     $mCopy = mobile_local((string)($row['mobile'] ?? ''));
                                   ?>
                                   <span class="copy" data-copy="<?php echo htmlspecialchars($mCopy, ENT_QUOTES, 'UTF-8'); ?>" title="کپی شماره ۱۱ رقمی">
-                                    <?php echo htmlspecialchars($mDisp, ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php echo htmlspecialchars(fa_digits($mDisp), ENT_QUOTES, 'UTF-8'); ?>
                                   </span>
                                 </td>
-                                <td><?php echo (int)$row['tickets']; ?></td>
-                                <td><?php echo number_format((int)$row['total']); ?></td>
+                                <td><?php echo fa_digits((string)((int)$row['tickets'])); ?></td>
+                                <td><?php echo fa_digits(number_format((int)$row['total'])); ?></td>
                                 <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
                                 <td>
                                   <?php if (!empty($row['ref_id'])): ?>
