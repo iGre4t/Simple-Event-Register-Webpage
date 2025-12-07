@@ -296,8 +296,12 @@ if (empty($participants)) {
         echo '<td>' . (int)$row['tickets'] . '</td>';
         echo '<td>' . number_format((int)$row['total']) . '</td>';
         echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8') . '</span></td>';
-        if (!empty($row['ref_id'])) {
-            echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8') . '</span></td>';
+        $zarinpalCode = trim((string)($row['authority'] ?? ''));
+        if ($zarinpalCode === '' && !empty($row['ref_id'])) {
+            $zarinpalCode = (string)$row['ref_id'];
+        }
+        if ($zarinpalCode !== '') {
+            echo '<td><span class="tag copy" data-copy="' . htmlspecialchars($zarinpalCode, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($zarinpalCode, ENT_QUOTES, 'UTF-8') . '</span></td>';
         } else { echo '<td><span class="muted">-</span></td>'; }
         if (!empty($row['created_at'])) {
             $d = shamsi_datetime((string)$row['created_at']);
