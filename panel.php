@@ -115,6 +115,15 @@ function shamsi_datetime(string $dateString): string {
     return $datePart . '  |  ' . $timePart; // clearer separation between date and time
 }
 
+function shamsi_date(string $dateString): string {
+    $t = strtotime($dateString);
+    if (!$t) {
+        return '';
+    }
+    [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y', $t), (int)date('n', $t), (int)date('j', $t));
+    return sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+}
+
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
@@ -340,6 +349,80 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
     }
 }
 
+// Logged in: registration control settings
+$registrationSaveMsg = '';
+$registrationSaveErr = '';
+$registrationConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'registration_config.php';
+$registrationConfig = [];
+if (is_readable($registrationConfigPath)) {
+    $tmp = require $registrationConfigPath;
+    if (is_array($tmp)) {
+        $registrationConfig = $tmp;
+    }
+}
+$registrationConfig = array_merge([
+    'blocked' => false,
+    'auto_date' => false,
+    'start_date' => '',
+    'start_time' => '',
+    'end_date' => '',
+    'end_time' => '',
+], $registrationConfig);
+
+$registrationStartHour = '';
+$registrationStartMinute = '';
+$registrationEndHour = '';
+$registrationEndMinute = '';
+if (!empty($registrationConfig['start_time']) && strpos((string)$registrationConfig['start_time'], ':') !== false) {
+    [$registrationStartHour, $registrationStartMinute] = explode(':', (string)$registrationConfig['start_time'], 2);
+}
+if (!empty($registrationConfig['end_time']) && strpos((string)$registrationConfig['end_time'], ':') !== false) {
+    [$registrationEndHour, $registrationEndMinute] = explode(':', (string)$registrationConfig['end_time'], 2);
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '') === 'save_registration_settings') {
+    $blocked = isset($_POST['registration_lock']) && (string)$_POST['registration_lock'] === '1';
+    $auto = isset($_POST['registration_auto_date']) && (string)$_POST['registration_auto_date'] === '1';
+    $start = trim((string)($_POST['registration_start'] ?? ''));
+    $end = trim((string)($_POST['registration_end'] ?? ''));
+    $startTime = trim((string)($_POST['registration_start_time'] ?? ''));
+    $endTime = trim((string)($_POST['registration_end_time'] ?? ''));
+
+    if ($auto) {
+        if ($start === '' || $end === '' || $startTime === '' || $endTime === '') {
+            $registrationSaveErr = 'برای فعال‌سازی تاریخ اتوماتیک، تاریخ و ساعت شروع و پایان باید مشخص شوند.';
+        }
+        $startTs = ($start !== '' && $startTime !== '') ? strtotime($start . ' ' . $startTime . ':00') : false;
+        $endTs = ($end !== '' && $endTime !== '') ? strtotime($end . ' ' . $endTime . ':00') : false;
+        if ($registrationSaveErr === '' && ($startTs === false || $endTs === false)) {
+            $registrationSaveErr = 'تاریخ یا ساعت وارد شده معتبر نیست.';
+        }
+        if ($registrationSaveErr === '' && $startTs > $endTs) {
+            $registrationSaveErr = 'تاریخ/ساعت پایان باید بعد از شروع باشد.';
+        }
+    }
+
+    if ($registrationSaveErr === '') {
+        $toSave = [
+            'blocked' => $auto ? false : $blocked,
+            'auto_date' => $auto,
+            'start_date' => $auto ? $start : '',
+            'start_time' => $auto ? $startTime : '',
+            'end_date' => $auto ? $end : '',
+            'end_time' => $auto ? $endTime : '',
+        ];
+        $export = var_export($toSave, true);
+        $php = "<?php\nreturn " . $export . ";\n";
+        $ok = @file_put_contents($registrationConfigPath, $php);
+        if ($ok === false) {
+            $registrationSaveErr = 'خطا در ذخیره تنظیمات ثبت نام. مجوز نوشتن را بررسی کنید.';
+        } else {
+            $registrationConfig = $toSave;
+            $registrationSaveMsg = 'تنظیمات ثبت نام با موفقیت ذخیره شد.';
+        }
+    }
+}
+
 // Logged in: handle settings save for Telegram admin account
 $telegramSaveMsg = '';
 $telegramSaveErr = '';
@@ -560,6 +643,144 @@ $count = count($participants);
         /* Tabs: only show the active section */
         .tab-section { display: none; }
         .tab-section.active { display: block; }
+        .control-room-card {
+            background:transparent;
+            padding:0;
+            border-radius:0;
+            box-shadow:none;
+            max-width:100%;
+            border:none;
+        }
+        .toggle-switch {
+            display:flex;
+            gap:14px;
+            align-items:center;
+            justify-content:space-between;
+            font-weight:600;
+            color:#0f172a;
+            position:relative;
+            cursor:pointer;
+        }
+        .toggle-switch.toggle-switch--disabled {
+            opacity:0.45;
+            cursor:not-allowed;
+        }
+        .toggle-switch input {
+            position:absolute;
+            width:0;
+            height:0;
+            opacity:0;
+        }
+        .toggle-switch .toggle-slider {
+            width:54px;
+            height:30px;
+            border-radius:999px;
+            background:#e4e7ec;
+            position:relative;
+            flex-shrink:0;
+            transition:background .25s ease;
+        }
+        .toggle-switch .toggle-slider::before {
+            content:'';
+            position:absolute;
+            top:4px;
+            left:4px;
+            width:22px;
+            height:22px;
+            background:#fff;
+            border-radius:50%;
+            box-shadow:0 8px 16px rgba(15,23,42,0.18);
+            transition:transform .25s ease, background .25s ease;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background:#111827;
+        }
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform:translateX(24px);
+            background:#fff;
+        }
+        .control-room-card .control-dates {
+            margin-top:16px;
+            display:grid;
+            gap:16px;
+        }
+        .control-room-card .control-date-field {
+            display:flex;
+            flex-direction:column;
+            gap:6px;
+        }
+        .control-date-field label {
+            font-weight:700;
+            color:#475569;
+            font-size:13px;
+        }
+        .control-date-field .input-surface {
+            background:#f8fafc;
+            border:1px solid rgba(15,23,42,0.08);
+            border-radius:12px;
+            padding:10px 12px;
+            display:flex;
+            align-items:center;
+            gap:8px;
+        }
+        .control-date-field .input-surface input.ctrl {
+            border:none;
+            background:transparent;
+            width:100%;
+            font-size:14px;
+            font-family:inherit;
+            padding:0;
+        }
+        .control-date-field .input-surface input.ctrl:focus {
+            outline:none;
+        }
+        .input-surface.datetime-surface {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            padding:10px 12px;
+            background:#fff;
+            border:1px solid rgba(15,23,42,0.08);
+            border-radius:16px;
+        }
+        .datetime-field.date-field {
+            flex:1;
+        }
+        .datetime-divider {
+            width:1px;
+            height:42px;
+            background:rgba(15,23,42,0.08);
+        }
+        .time-fields {
+            display:flex;
+            align-items:center;
+            gap:6px;
+            padding:6px 10px;
+            border-radius:10px;
+            background:#f8fafc;
+            border:1px solid rgba(15,23,42,0.12);
+        }
+        .time-fields .time-part {
+            width:40px;
+            padding:6px 8px;
+            border-radius:8px;
+            border:1px solid rgba(15,23,42,0.08);
+            text-align:center;
+            font-weight:600;
+            font-family:inherit;
+            background:#fff;
+        }
+        .time-fields .time-part::placeholder {
+            color:#94a3b8;
+        }
+        .time-separator {
+            font-weight:700;
+            color:#475569;
+        }
+        #control-room form .btn {
+            width:100%;
+            box-sizing:border-box;
+        }
         @media (max-width: 820px){ .app { grid-template-columns: 1fr; } .sidebar { position: sticky; top:0; z-index:2; } }
         /* Sidebar redesign overrides */
         :root {
@@ -646,6 +867,7 @@ $count = count($participants);
             </div>
             <nav class="side-nav">
                 <a href="#dashboard" class="active"><i data-feather="activity"></i><span>داشبورد</span></a>
+                <a href="#control-room"><i data-feather="shield-off"></i><span>اتاق کنترل</span></a>
                 <a href="#participants"><i data-feather="users"></i><span>شرکت‌کنندگان</span></a>
                 <a href="#archive"><i data-feather="archive"></i><span>آرشیو</span></a>
                 <a href="#share-settings"><i data-feather="dollar-sign"></i><span>تنظیمات سهم ها</span></a>
@@ -661,6 +883,7 @@ $count = count($participants);
             <h2 class="side-title">پنل ثبت نام مسابقات</h2>
             <nav class="side-nav">
                 <a href="#dashboard" class="active">داشبورد</a>
+                <a href="#control-room">اتاق کنترل</a>
                 <a href="#participants">لیست ثبت نامی ها</a>
                 <a href="#archive">لیست آرشیو</a>
                 <a href="#share-settings">تنظیمات سهم ها</a>
@@ -856,6 +1079,71 @@ $count = count($participants);
                     </div>
                 </form>
             </div>
+            <div id="control-room" class="card tab-section" style="margin-bottom:16px;">
+                <h2 class="title" style="margin-top:0">تنظیمات ثبت نام</h2>
+                <?php if ($registrationSaveMsg !== ''): ?>
+                    <div class="tag" style="background:#e6f1ff; border:1px solid #a5c7ff; color:#0f172a; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($registrationSaveMsg, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($registrationSaveErr !== ''): ?>
+                    <div class="tag" style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; margin-bottom:12px;">
+                        <?php echo htmlspecialchars($registrationSaveErr, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
+                <form method="post" action="panel.php#control-room" style="display:grid; gap:12px; max-width:640px;">
+                    <input type="hidden" name="action" value="save_registration_settings" />
+                    <div class="control-room-card">
+                        <label class="toggle-switch">
+                            <span>مسدود کردن ثبت نام</span>
+                            <input type="checkbox" name="registration_lock" value="1" <?php echo $registrationConfig['blocked'] ? 'checked' : ''; ?> />
+                            <span class="toggle-slider" aria-hidden="true"></span>
+                        </label>
+                        <label class="toggle-switch">
+                            <span>تنظیم تاریخ اتوماتیک</span>
+                            <input type="checkbox" name="registration_auto_date" value="1" <?php echo $registrationConfig['auto_date'] ? 'checked' : ''; ?> />
+                            <span class="toggle-slider" aria-hidden="true"></span>
+                        </label>
+                        <div class="control-dates">
+                            <div class="control-date-field">
+                                <label for="registration_start_sh">تاریخ شروع ثبت نام</label>
+                                <div class="input-surface datetime-surface">
+                                    <div class="datetime-field date-field">
+                                        <input class="ctrl shamsi" type="text" id="registration_start_sh" name="registration_start_sh" placeholder="مثال: ۱۴۰۳/۰۱/۰۱" autocomplete="off" inputmode="numeric" value="<?php echo htmlspecialchars(shamsi_date($registrationConfig['start_date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                    </div>
+                                    <div class="datetime-divider" aria-hidden="true"></div>
+                                    <div class="time-fields" data-hidden-target="registration_start_time_hidden">
+                                        <input class="ctrl time-part time-hour" type="text" placeholder="ساعت" maxlength="2" inputmode="numeric" value="<?php echo htmlspecialchars($registrationStartHour, ENT_QUOTES, 'UTF-8'); ?>" />
+                                        <span class="time-separator">:</span>
+                                        <input class="ctrl time-part time-minute" type="text" placeholder="دقیقه" maxlength="2" inputmode="numeric" value="<?php echo htmlspecialchars($registrationStartMinute, ENT_QUOTES, 'UTF-8'); ?>" />
+                                    </div>
+                                    <input type="hidden" id="registration_start" name="registration_start" value="<?php echo htmlspecialchars((string)($registrationConfig['start_date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                    <input type="hidden" id="registration_start_time_hidden" name="registration_start_time" value="<?php echo htmlspecialchars((string)($registrationConfig['start_time'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                </div>
+                            </div>
+                            <div class="control-date-field">
+                                <label for="registration_end_sh">تاریخ پایان ثبت نام</label>
+                                <div class="input-surface datetime-surface">
+                                    <div class="datetime-field date-field">
+                                        <input class="ctrl shamsi" type="text" id="registration_end_sh" name="registration_end_sh" placeholder="مثال: ۱۴۰۳/۰۱/۳۱" autocomplete="off" inputmode="numeric" value="<?php echo htmlspecialchars(shamsi_date($registrationConfig['end_date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                    </div>
+                                    <div class="datetime-divider" aria-hidden="true"></div>
+                                    <div class="time-fields" data-hidden-target="registration_end_time_hidden">
+                                        <input class="ctrl time-part time-hour" type="text" placeholder="ساعت" maxlength="2" inputmode="numeric" value="<?php echo htmlspecialchars($registrationEndHour, ENT_QUOTES, 'UTF-8'); ?>" />
+                                        <span class="time-separator">:</span>
+                                        <input class="ctrl time-part time-minute" type="text" placeholder="دقیقه" maxlength="2" inputmode="numeric" value="<?php echo htmlspecialchars($registrationEndMinute, ENT_QUOTES, 'UTF-8'); ?>" />
+                                    </div>
+                                    <input type="hidden" id="registration_end" name="registration_end" value="<?php echo htmlspecialchars((string)($registrationConfig['end_date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                    <input type="hidden" id="registration_end_time_hidden" name="registration_end_time" value="<?php echo htmlspecialchars((string)($registrationConfig['end_time'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn" type="submit">ذخیره تنظیمات ثبت نام</button>
+                    </div>
+                </form>
+            </div>
             <div id="participants" class="card tab-section">
                 <div class="header-row">
                     <h1 class="title" style="margin:0">لیست ثبت نامی ها</h1>
@@ -864,7 +1152,7 @@ $count = count($participants);
                 <div class="csv-hint">اطلاعات از فایل‌های CSV در مسیر <code>storage</code> خوانده می‌شود: <code>1 tickets.csv</code> تا <code>4 tickets.csv</code>. شروع بازه از «تاریخ ثبت» و پایان بازه از «تاریخ پرداخت» محاسبه می‌شود.</div>
                 -->
                 <div class="filters">
-                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;"><input type="hidden" value="1" />
+                    <form method="get" class="filters__primary"><input type="hidden" value="1" />
                         <input class="ctrl" type="search" name="q" value="<?php echo htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>" placeholder="جستجو ">
                         <select class="ctrl" name="sort">
                             <option value="date_desc" <?php if($sort==='date_desc') echo 'selected'; ?>>بر اساس تاریخ آخرین تا اولین</option>
@@ -872,9 +1160,9 @@ $count = count($participants);
                             <option value="name"      <?php if($sort==='name')      echo 'selected'; ?>>بر اساس اسم</option>
                             <option value="mobile"    <?php if($sort==='mobile')    echo 'selected'; ?>>بر اساس تلفن همراه</option>
                         </select>
-                        <button class="btn" style="width:auto; padding:10px 14px">فیلتر کردن</button>
+                        <button class="btn" type="submit">فیلتر کردن</button>
                     </form>
-                    <form action="export.php" method="get" style="display:flex; gap:8px; align-items:center; margin-inline-start:auto; flex-wrap: wrap;">
+                    <form action="export.php" method="get" class="filters__export">
                         <select class="ctrl" name="tickets">
                             <option value="">فیلتر تعداد سهم</option>
                             <option value="1">1 سهم</option>
@@ -882,12 +1170,14 @@ $count = count($participants);
                             <option value="3">3 سهم</option>
                             <option value="4">4 سهم</option>
                         </select>
-                        <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
-                        <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
-                        <button class="btn" style="width:auto; padding:10px 14px">خروجی CSV</button>
+                        <div class="filters__date-range">
+                            <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
+                            <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
+                        </div>
+                        <button class="btn" type="submit">خروجی CSV</button>
                     </form>
                 </div>
-                <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                <div class="bulk-actions">
                     <span class="muted" id="bulkCount">0 مورد انتخاب شده</span>
                     <select class="ctrl" id="bulkAction" style="max-width:200px;">
                         <option value="">اقدام گروهی</option>
@@ -913,7 +1203,7 @@ $count = count($participants);
                         <tbody id="rowsBody">
                         <?php if (empty($participants)): ?>
                             <tr>
-                                <td colspan="5" class="muted">Ù‡Ù†ÙˆØ² Ø´Ø±Ú©Øªâ€ŒÚ©Ù†Ù†Ø¯Ù‡â€ŒØ§ÛŒ Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.</td>
+                                <td colspan="5" class="muted">آیتمی در لیست یافت نشد.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($participants as $row): ?>
@@ -985,7 +1275,7 @@ $count = count($participants);
                     </div>
                 </div>
                 <div class="filters filters-archive">
-                    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    <form method="get" class="filters__primary">
                         <input class="ctrl" type="search" name="q" value="" placeholder="جستجو">
                         <select class="ctrl" name="sort">
                             <option value="date_desc">بر اساس تاریخ جدید به قدیم</option>
@@ -993,7 +1283,7 @@ $count = count($participants);
                             <option value="name">بر اساس نام</option>
                             <option value="mobile">بر اساس شماره تماس</option>
                         </select>
-                        <button class="btn" style="width:auto; padding:10px 14px">اعمال فیلتر</button>
+                        <button class="btn" type="submit">اعمال فیلتر</button>
                     </form>
                 </div>
                 <div class="bulk-actions" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
@@ -1200,8 +1490,8 @@ $count = count($participants);
         // Enhance date fields: add Shamsi inputs and hidden Gregorian values
         (function enhanceShamsi(){
           if(!formExport) return;
-          var oldFrom = formExport.querySelector('input[type="date"][name="from"]');
-          var oldTo   = formExport.querySelector('input[type="date"][name="to"]');
+                            var oldFrom = formExport.querySelector('input[type="date"][name="from"]');
+                            var oldTo   = formExport.querySelector('input[type="date"][name="to"]');
           if(!oldFrom || !oldTo) return; // already enhanced
           var hFrom = document.createElement('input'); hFrom.type='hidden'; hFrom.name='from';
           var hTo   = document.createElement('input'); hTo.type='hidden';   hTo.name='to';
@@ -1453,6 +1743,122 @@ $count = count($participants);
         ensureHeader();
         convertTreeToFa(document.body);
         refresh();
+      })();
+    </script>
+    <script>
+      (function(){
+        var startInput = document.getElementById('registration_start_sh');
+        var endInput = document.getElementById('registration_end_sh');
+        var startHidden = document.getElementById('registration_start');
+        var endHidden = document.getElementById('registration_end');
+        function openPicker(input){
+          if(!input) return;
+          var trigger = function(){
+            if(window.jQuery){ try{ jQuery(input).trigger('click'); }catch(e){} }
+          };
+          input.addEventListener('focus', trigger);
+          input.addEventListener('click', trigger);
+        }
+        function setHiddenFromUnix(target, unix){
+          if(!target) return;
+          try {
+            var g = new persianDate(unix).toCalendar('gregorian').toLocale('en').format('YYYY-MM-DD');
+            target.value = g;
+            target.dispatchEvent(new Event('change', {bubbles:true}));
+          } catch(e){}
+        }
+        function initPersianDate(input, hidden){
+          if(!input || !hidden) return;
+          try {
+            if (window.jQuery && window.persianDate && jQuery.fn.persianDatepicker) {
+              jQuery(input).persianDatepicker({
+                initialValue: false,
+                format: 'YYYY/MM/DD',
+                autoClose: true,
+                calendar: { persian: { locale: 'fa' } },
+                onSelect: function(unix){
+                  try { if (input) input.value = new persianDate(unix).toCalendar('persian').toLocale('fa').format('YYYY/MM/DD'); } catch(e){}
+                  setHiddenFromUnix(hidden, unix);
+                }
+              });
+            }
+          } catch(e){}
+        }
+        openPicker(startInput);
+        openPicker(endInput);
+        initPersianDate(startInput, startHidden);
+        initPersianDate(endInput, endHidden);
+
+        var wrappers = Array.from(document.querySelectorAll('.time-fields'));
+        function normalizeDigits(value, max){
+          var digits = (value || '').replace(/\\D/g, '');
+          if(digits === '') { return ''; }
+          var num = parseInt(digits, 10);
+          if(isNaN(num)){ return ''; }
+          num = Math.max(0, Math.min(max, num));
+          return String(num).padStart(2, '0');
+        }
+        function wireTimeInputs(wrapper){
+          if(!wrapper) return;
+          var hourInput = wrapper.querySelector('.time-hour');
+          var minuteInput = wrapper.querySelector('.time-minute');
+          var hidden = document.getElementById(wrapper.dataset.hiddenTarget);
+          if(!hourInput || !minuteInput || !hidden) { return; }
+          function updateHidden(){
+            var hour = normalizeDigits(hourInput.value, 23);
+            var minute = normalizeDigits(minuteInput.value, 59);
+            if(hour && minute){
+              hidden.value = hour + ':' + minute;
+            } else {
+              hidden.value = '';
+            }
+            hidden.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+          function sanitize(e){
+            var cleaned = (e.target.value || '').replace(/\\D/g, '').slice(0, 2);
+            e.target.value = cleaned;
+            updateHidden();
+          }
+          function formatOnBlur(e, max){
+            var normalized = normalizeDigits(e.target.value, max);
+            e.target.value = normalized ? normalized : '';
+            updateHidden();
+          }
+          hourInput.addEventListener('input', sanitize);
+          minuteInput.addEventListener('input', sanitize);
+          hourInput.addEventListener('blur', function(e){ formatOnBlur(e, 23); });
+          minuteInput.addEventListener('blur', function(e){ formatOnBlur(e, 59); });
+          updateHidden();
+        }
+        wrappers.forEach(wireTimeInputs);
+
+        var autoToggle = document.querySelector('input[name="registration_auto_date"]');
+        var lockToggle = document.querySelector('input[name="registration_lock"]');
+        var datetimeInputs = document.querySelectorAll('#control-room .datetime-surface input.ctrl');
+        function syncAutoState(){
+          var active = autoToggle && autoToggle.checked;
+          if(lockToggle){
+            lockToggle.disabled = active;
+            var wrap = lockToggle.closest('.toggle-switch');
+            if(wrap){
+              wrap.classList.toggle('toggle-switch--disabled', active);
+            }
+            if(active){
+              lockToggle.checked = false;
+            }
+          }
+          datetimeInputs.forEach(function(el){
+            if(active){
+              el.setAttribute('required', 'required');
+            } else {
+              el.removeAttribute('required');
+            }
+          });
+        }
+        if(autoToggle){
+          autoToggle.addEventListener('change', syncAutoState);
+        }
+        syncAutoState();
       })();
     </script>
 </body>

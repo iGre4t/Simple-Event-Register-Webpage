@@ -8,6 +8,42 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+$registrationConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'registration_config.php';
+$registrationSettings = [];
+if (is_readable($registrationConfigPath)) {
+    $tmp = require $registrationConfigPath;
+    if (is_array($tmp)) {
+        $registrationSettings = $tmp;
+    }
+}
+$registrationSettings = array_merge([
+    'blocked' => false,
+    'auto_date' => false,
+    'start_date' => '',
+    'start_time' => '',
+    'end_date' => '',
+    'end_time' => '',
+], $registrationSettings);
+$registrationAutoDate = !empty($registrationSettings['auto_date']);
+$registrationBlocked = !empty($registrationSettings['blocked']);
+$registrationWindowActive = false;
+$registrationStart = trim((string)($registrationSettings['start_date'] ?? ''));
+$registrationEnd = trim((string)($registrationSettings['end_date'] ?? ''));
+$registrationStartTime = trim((string)($registrationSettings['start_time'] ?? ''));
+$registrationEndTime = trim((string)($registrationSettings['end_time'] ?? ''));
+if ($registrationAutoDate && $registrationStart !== '' && $registrationStartTime !== '' && $registrationEnd !== '' && $registrationEndTime !== '') {
+    $startTs = strtotime($registrationStart . ' ' . $registrationStartTime);
+    $endTs = strtotime($registrationEnd . ' ' . $registrationEndTime);
+    if ($startTs !== false && $endTs !== false && $startTs <= $endTs) {
+        $now = time();
+        $registrationWindowActive = $now >= $startTs && $now <= $endTs;
+    }
+}
+$registrationClosed = $registrationBlocked || ($registrationAutoDate && !$registrationWindowActive);
+if ($registrationClosed) {
+    fail_redirect('registration_closed');
+}
+
 function fail_redirect(string $reason = ''): void
 {
     $target = 'fail.php';

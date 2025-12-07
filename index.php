@@ -1,6 +1,60 @@
 <?php
 // ------- تنظیمات ساده -------
 $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
+
+// Load per-quantity share prices (1..4) for the client.
+$shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
+$sharePrices = [
+    1 => 100000,
+    2 => 200000,
+    3 => 300000,
+    4 => 400000,
+];
+if (is_readable($shareConfigPath)) {
+    $tmp = require $shareConfigPath;
+    if (is_array($tmp)) {
+        foreach ($sharePrices as $k => $v) {
+            if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
+                $sharePrices[$k] = (int)$tmp[$k];
+            }
+        }
+    }
+}
+
+$registrationConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'registration_config.php';
+$registrationSettings = [];
+if (is_readable($registrationConfigPath)) {
+    $tmp = require $registrationConfigPath;
+    if (is_array($tmp)) {
+        $registrationSettings = $tmp;
+    }
+}
+$registrationSettings = array_merge([
+    'blocked' => false,
+    'auto_date' => false,
+    'start_date' => '',
+    'start_time' => '',
+    'end_date' => '',
+    'end_time' => '',
+], $registrationSettings);
+
+$registrationAutoDate = !empty($registrationSettings['auto_date']);
+$registrationBlocked = !empty($registrationSettings['blocked']);
+$registrationWindowActive = false;
+if ($registrationAutoDate
+    && ($registrationSettings['start_date'] ?? '') !== ''
+    && ($registrationSettings['start_time'] ?? '') !== ''
+    && ($registrationSettings['end_date'] ?? '') !== ''
+    && ($registrationSettings['end_time'] ?? '') !== '') {
+    $startTs = strtotime($registrationSettings['start_date'] . ' ' . $registrationSettings['start_time']);
+    $endTs = strtotime($registrationSettings['end_date'] . ' ' . $registrationSettings['end_time']);
+    if ($startTs !== false && $endTs !== false && $startTs <= $endTs) {
+        $now = time();
+        $registrationWindowActive = $now >= $startTs && $now <= $endTs;
+    }
+}
+$registrationClosed = $registrationBlocked || ($registrationAutoDate && !$registrationWindowActive);
+$registrationBtnLabel = $registrationClosed ? 'ثبت نام به پایان رسید' : 'پرداخت و تکمیل ثبت‌نام';
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -335,32 +389,13 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
       <input type="hidden" name="total_price" id="total_price" value="">
 
       <!-- دکمه -->
-      <button class="btn" type="submit" id="submitBtn" disabled aria-disabled="true">پرداخت و تکمیل ثبت‌نام</button>
+      <button class="btn" type="submit" id="submitBtn" <?php if ($registrationClosed) { ?>disabled aria-disabled="true"<?php } else { ?>aria-disabled="false"<?php } ?>>
+        <?php echo htmlspecialchars($registrationBtnLabel, ENT_QUOTES, 'UTF-8'); ?>
+      </button>
 
       <footer>© <?php echo date('Y'); ?> Sicily Exports Complex. All Rights Reserved.</footer>
     </form>
   </div>
-
-  <?php
-  // Load per-quantity share prices (1..4) from config for the client.
-  $shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
-  $sharePrices = [
-      1 => 100000,
-      2 => 200000,
-      3 => 300000,
-      4 => 400000,
-  ];
-  if (is_readable($shareConfigPath)) {
-      $tmp = require $shareConfigPath;
-      if (is_array($tmp)) {
-          foreach ($sharePrices as $k => $v) {
-              if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
-                  $sharePrices[$k] = (int)$tmp[$k];
-              }
-          }
-      }
-  }
-  ?>
 
   <script>
   const SHARE_PRICES = <?php echo json_encode($sharePrices, JSON_UNESCAPED_UNICODE); ?>;
@@ -374,6 +409,7 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
   const $mobileLocal = document.getElementById('mobile');
   const $form = document.getElementById('regForm');
   const $submit = document.getElementById('submitBtn');
+  const REGISTRATION_DISABLED = <?php echo json_encode($registrationClosed); ?>;
 
   const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹'.split('');
   const EN_DIGITS = '0123456789'.split('');
@@ -425,9 +461,9 @@ $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
     const fullnameOk = $fullname.value.trim().length > 0;
     const mobileOk = /^09\d{9}$/.test(digits);
     const qtyOk = Boolean($qty.value);
-    const enable = fullnameOk && mobileOk && qtyOk;
-    $submit.disabled = !enable;
-    $submit.setAttribute('aria-disabled', String(!enable));
+    const allow = fullnameOk && mobileOk && qtyOk && !REGISTRATION_DISABLED;
+    $submit.disabled = !allow;
+    $submit.setAttribute('aria-disabled', String(!allow));
   }
   function markInvalid(el, invalid){
     const wrap = el.closest('.input-wrap');
