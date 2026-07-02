@@ -1,5 +1,7 @@
-# Prevent direct web access to configuration files that hold secrets
-<FilesMatch "(?i)^(config|sms_config|telegram_config)\.php$">
+Options -Indexes
+ServerSignature Off
+
+<FilesMatch "(?i)(^\.|^(config|sms_config|telegram_config|registration_config|share_config|security)\.php$|\.(?:csv|json|log|ini|env|sql|sqlite|db|bak|backup|old|orig|save|swp|tmp|txt|md|py|bat)$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -8,4 +10,19 @@
         Deny from all
     </IfModule>
 </FilesMatch>
+
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} ^(?:TRACE|TRACK)$ [NC]
+RewriteRule ^ - [F,L]
+RewriteRule ^storage(?:/|$) - [F,L,NC]
+RewriteRule ^backups(?:/|$) - [F,L,NC]
+RewriteRule ^(?:vendor|node_modules|\.git)(?:/|$) - [F,L,NC]
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    Header always unset X-Powered-By
+</IfModule>
 

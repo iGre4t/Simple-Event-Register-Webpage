@@ -1,20 +1,15 @@
 <?php
 // Simple Telegram Bot helper for admin notifications
+require_once __DIR__ . '/db.php';
 
-// Load Telegram admin chat/user ID from config (with safe default)
-$telegramConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'telegram_config.php';
-$telegramConfig = [];
-if (is_readable($telegramConfigPath)) {
-    $tmp = require $telegramConfigPath;
-    if (is_array($tmp)) {
-        $telegramConfig = $tmp;
-    }
-}
+$telegramChannel = db_notification_channel('telegram', 'admin_bot');
+$telegramConfig = $telegramChannel ? $telegramChannel['config'] : [];
+$telegramConfig['bot_token'] = $telegramChannel ? (string)$telegramChannel['secret_value'] : '';
 
 // Bot token and admin chat id
 // Provided by user request
 if (!defined('TELEGRAM_BOT_TOKEN')) {
-    $defaultToken = '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM';
+    $defaultToken = '';
     if (isset($telegramConfig['bot_token']) && $telegramConfig['bot_token'] !== '') {
         $defaultToken = (string)$telegramConfig['bot_token'];
     }
@@ -30,17 +25,11 @@ if (!defined('TELEGRAM_ADMIN_CHAT_ID')) {
 }
 
 /**
- * Append a line to storage/telegram.log for debugging.
+ * Persist Telegram diagnostics in the database.
  */
 function telegram_log(string $line): void
 {
-    $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
-    if (!is_dir($storageDir)) {
-        @mkdir($storageDir, 0775, true);
-    }
-    $logFile = $storageDir . DIRECTORY_SEPARATOR . 'telegram.log';
-    $timestamp = date('Y-m-d H:i:s');
-    @file_put_contents($logFile, "[$timestamp] $line" . PHP_EOL, FILE_APPEND);
+    db_log('telegram', $line);
 }
 
 /**

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/security.php';
 $reason = $_GET['reason'] ?? '';
 ?>
 <!DOCTYPE html>

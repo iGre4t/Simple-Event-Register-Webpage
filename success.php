@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/security.php';
 // Success page: show masked internal tracking code (tag + time)
 // without changing what we store in lists/CSV.
 

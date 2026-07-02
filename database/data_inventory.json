@@ -1,0 +1,32 @@
+{
+  "captured_at": "2026-07-02",
+  "timezone": "Asia/Tehran",
+  "event_count": 1,
+  "ticket_price_count": 4,
+  "payment_provider_count": 1,
+  "participant_count": 0,
+  "archived_participant_count": 0,
+  "pending_payment_count": 0,
+  "completed_payment_count": 0,
+  "tracking_counter": 1,
+  "source_files": {
+    "participants": [],
+    "pending_payments": [],
+    "completed_payments": [],
+    "counter": "storage/counter.txt",
+    "prices": "share_config.php",
+    "registration_settings": "registration_config.php",
+    "sms_settings": "sms_config.php",
+    "telegram_settings": "telegram_config.php"
+  },
+  "secret_values_exported_to_sql": false,
+  "secret_values_seeded_into_database": true,
+  "local_secret_backup": ".env.local",
+  "secret_environment_keys": [
+    "SMSIR_API_KEY",
+    "TELEGRAM_BOT_TOKEN",
+    "ZARINPAL_MERCHANT_ID",
+    "EVENT_ADMIN_USER",
+    "EVENT_ADMIN_PASSWORD"
+  ]
+}

@@ -1,42 +1,21 @@
 <?php
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db.php';
+security_session_start();
 // ------- تنظیمات ساده -------
 $TICKET_PRICE = 100000; // هر سهم ۱۰۰,۰۰۰ ریال
 
 // Load per-quantity share prices (1..4) for the client.
-$shareConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
-$sharePrices = [
-    1 => 100000,
-    2 => 200000,
-    3 => 300000,
-    4 => 400000,
+$currentEvent = db_event();
+$sharePrices = db_ticket_prices((int)$currentEvent['id']);
+$registrationSettings = [
+    'blocked' => !(bool)$currentEvent['registration_enabled'],
+    'auto_date' => $currentEvent['registration_starts_at'] !== null || $currentEvent['registration_ends_at'] !== null,
+    'start_date' => $currentEvent['registration_starts_at'] ? date('Y-m-d', strtotime($currentEvent['registration_starts_at'])) : '',
+    'start_time' => $currentEvent['registration_starts_at'] ? date('H:i', strtotime($currentEvent['registration_starts_at'])) : '',
+    'end_date' => $currentEvent['registration_ends_at'] ? date('Y-m-d', strtotime($currentEvent['registration_ends_at'])) : '',
+    'end_time' => $currentEvent['registration_ends_at'] ? date('H:i', strtotime($currentEvent['registration_ends_at'])) : '',
 ];
-if (is_readable($shareConfigPath)) {
-    $tmp = require $shareConfigPath;
-    if (is_array($tmp)) {
-        foreach ($sharePrices as $k => $v) {
-            if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
-                $sharePrices[$k] = (int)$tmp[$k];
-            }
-        }
-    }
-}
-
-$registrationConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'registration_config.php';
-$registrationSettings = [];
-if (is_readable($registrationConfigPath)) {
-    $tmp = require $registrationConfigPath;
-    if (is_array($tmp)) {
-        $registrationSettings = $tmp;
-    }
-}
-$registrationSettings = array_merge([
-    'blocked' => false,
-    'auto_date' => false,
-    'start_date' => '',
-    'start_time' => '',
-    'end_date' => '',
-    'end_time' => '',
-], $registrationSettings);
 
 $registrationAutoDate = !empty($registrationSettings['auto_date']);
 $registrationBlocked = !empty($registrationSettings['blocked']);
@@ -327,6 +306,7 @@ $registrationBtnLabel = $registrationClosed ? 'ثبت نام به پایان ر�
 <body>
   <div class="wrap">
     <form class="card" method="post" action="purchase.php" id="regForm" novalidate>
+      <?php echo csrf_input(); ?>
       <header>
         <h1 class="title">ثبت نام مسابقات سوپرکاپ سیسیلی</h1>
         <p class="sub">لطفاً اطلاعات خود را با دقت کامل کنید.</p>

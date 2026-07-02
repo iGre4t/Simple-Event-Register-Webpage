@@ -1,7 +1,9 @@
 <?php
-return [
-    // Default admin Telegram user/chat ID for notifications
-    'admin_chat_id' => '6442613822',
-    // Default Telegram Bot API token for notifications
-    'bot_token'     => '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM',
-];
+require_once __DIR__ . '/db.php';
+$channel = db_notification_channel('telegram', 'admin_bot');
+if (!$channel) {
+    return [];
+}
+$config = $channel['config'];
+$config['bot_token'] = (string)$channel['secret_value'];
+return $config;

@@ -1,6 +1,8 @@
 <?php
 // AJAX endpoint: check if a mobile number has already been registered.
 
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db.php';
 header('Content-Type: application/json; charset=UTF-8');
 
 /**
@@ -77,27 +79,13 @@ if ($mobileLocal === '') {
     exit;
 }
 
-$storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
-$exists = false;
-
-if (is_dir($storageDir)) {
-    // Active participants (per-quantity CSVs 1..4)
-    for ($n = 1; $n <= 4 && !$exists; $n++) {
-        $file = $storageDir . DIRECTORY_SEPARATOR . $n . ' tickets.csv';
-        if (file_has_mobile($file, $mobileLocal)) {
-            $exists = true;
-            break;
-        }
-    }
-
-    // Archived participants (archiev.csv), if present
-    if (!$exists) {
-        $archived = $storageDir . DIRECTORY_SEPARATOR . 'archiev.csv';
-        if (file_has_mobile($archived, $mobileLocal)) {
-            $exists = true;
-        }
-    }
-}
+$stmt = db()->prepare(
+    'SELECT 1 FROM participants p
+     JOIN registrations r ON r.participant_id = p.id
+     WHERE p.mobile = ? AND r.status IN ("paid", "archived") LIMIT 1'
+);
+$stmt->execute([$mobileLocal]);
+$exists = (bool)$stmt->fetchColumn();
 
 echo json_encode(
     [

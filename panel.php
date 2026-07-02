@@ -1,14 +1,16 @@
-﻿<?php
-session_start();
+<?php
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db.php';
+security_session_start();
 // Ensure UTF-8 output to avoid mojibake
 header('Content-Type: text/html; charset=UTF-8');
 
-// Very simple credentials per request
-$ADMIN_USER = 'admin';
-$ADMIN_PASS = '12345';
-
 // Handle logout
 if (isset($_GET['logout'])) {
+    if (!csrf_is_valid($_GET['csrf_token'] ?? '')) {
+        http_response_code(403);
+        exit('Invalid CSRF token');
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
@@ -25,14 +27,35 @@ if (isset($_GET['logout'])) {
 // Handle login post
 $loginError = '';
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['username'], $_POST['password'])) {
+    csrf_validate_request();
+    $now = time();
+    $lockedUntil = (int)($_SESSION['login_locked_until'] ?? 0);
+    if ($lockedUntil > $now) {
+        $loginError = 'تلاش‌های ورود بیش از حد مجاز است. چند دقیقه دیگر دوباره امتحان کنید.';
+    } else {
     $u = trim((string)$_POST['username']);
     $p = (string)$_POST['password'];
-    if ($u === $ADMIN_USER && $p === $ADMIN_PASS) {
+    $stmt = db()->prepare('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND enabled = 1');
+    $stmt->execute([$u]);
+    $admin = $stmt->fetch();
+    if ($admin && password_verify($p, (string)$admin['password_hash'])) {
+        session_regenerate_id(true);
         $_SESSION['is_admin'] = true;
+        $_SESSION['admin_user_id'] = (int)$admin['id'];
+        $_SESSION['admin_role'] = (string)$admin['role'];
+        db()->prepare('UPDATE admin_users SET last_login_at = NOW() WHERE id = ?')->execute([(int)$admin['id']]);
+        db_audit('admin.login', 'admin_user', (string)$admin['id']);
+        unset($_SESSION['login_attempts'], $_SESSION['login_locked_until']);
         header('Location: panel.php');
         exit;
     } else {
+        $_SESSION['login_attempts'] = (int)($_SESSION['login_attempts'] ?? 0) + 1;
+        if ($_SESSION['login_attempts'] >= 5) {
+            $_SESSION['login_locked_until'] = $now + 900;
+            $_SESSION['login_attempts'] = 0;
+        }
         $loginError = 'نام کاربری یا گذرواژه اشتباه است';
+    }
     }
 }
 
@@ -126,6 +149,17 @@ function shamsi_date(string $dateString): string {
 
 // Helper to read CSV rows from storage for 1..4 ticket groups
 function read_participants(): array {
+    $sql = 'SELECT r.quantity AS tickets, r.tracking_code AS tag, p.full_name AS fullname,
+                   p.mobile, r.total_amount AS total, pay.reference_id AS ref_id,
+                   r.created_at, r.paid_at, pay.authority,
+                   UNIX_TIMESTAMP(COALESCE(r.paid_at, r.created_at)) AS ts
+            FROM registrations r
+            JOIN participants p ON p.id = r.participant_id
+            LEFT JOIN payments pay ON pay.registration_id = r.id AND pay.status = "verified"
+            WHERE r.status = "paid"
+            ORDER BY r.created_at DESC';
+    return db()->query($sql)->fetchAll();
+    /* Legacy CSV reader retained temporarily for rollback reference.
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
     $all = [];
     for ($n = 1; $n <= 4; $n++) {
@@ -202,10 +236,21 @@ function read_participants(): array {
         }
         fclose($fh);
     }
-    return $all;
+    return $all; */
 }
 
 function read_archived(): array {
+    $sql = 'SELECT r.quantity AS tickets, r.tracking_code AS tag, p.full_name AS fullname,
+                   p.mobile, r.total_amount AS total, pay.reference_id AS ref_id,
+                   r.created_at, r.paid_at, pay.authority,
+                   UNIX_TIMESTAMP(COALESCE(r.paid_at, r.created_at)) AS ts
+            FROM registrations r
+            JOIN participants p ON p.id = r.participant_id
+            LEFT JOIN payments pay ON pay.registration_id = r.id AND pay.status = "verified"
+            WHERE r.status = "archived"
+            ORDER BY r.archived_at DESC';
+    return db()->query($sql)->fetchAll();
+    /* Legacy CSV reader retained temporarily for rollback reference.
     $file = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'archiev.csv';
     $out = [];
     if (!is_file($file)) { return $out; }
@@ -254,7 +299,7 @@ function read_archived(): array {
         $out[] = $rec;
     }
     fclose($fh);
-    return $out;
+    return $out; */
 }
 
 function circle_metrics(float $percent, float $radius = 60.0): array {
@@ -289,6 +334,7 @@ if (!($_SESSION['is_admin'] ?? false)) {
     <body>
         <div class="wrap">
             <form class="card login-card" method="post" action="panel.php">
+                <?php echo csrf_input(); ?>
                 <h1 class="title">ورود به پنل ثبت نام مسابقات</h1>
                 <p class="sub">برای ورود اطلاعات خود را وارد کنید</p>
                 <?php if ($loginError !== ''): ?><div class="error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
@@ -307,14 +353,15 @@ if (!($_SESSION['is_admin'] ?? false)) {
 }
 
 // Logged in: handle settings save for SMS.ir
+$csrfToken = csrf_token();
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    csrf_validate_request();
+}
 $smsSaveMsg = '';
 $smsSaveErr = '';
-$smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
-$smsConfig = [];
-if (is_readable($smsConfigPath)) {
-    $tmp = require $smsConfigPath;
-    if (is_array($tmp)) { $smsConfig = $tmp; }
-}
+$smsChannel = db_notification_channel('sms', 'sms_ir');
+$smsConfig = $smsChannel ? $smsChannel['config'] : [];
+$smsConfig['api_key'] = $smsChannel ? (string)$smsChannel['secret_value'] : '';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_smsir') {
     $newApi  = trim((string)($_POST['smsir_api'] ?? ''));
@@ -336,15 +383,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
         $cfg['line_number'] = $newLineDigits;
         $cfg['admin_mobile'] = $newAdminDigits;
 
-        // Serialize back to PHP file
-        $export = var_export($cfg, true);
-        $php = "<?php\nreturn " . $export . ";\n";
-        $ok = @file_put_contents($smsConfigPath, $php);
-        if ($ok === false) {
-            $smsSaveErr = 'خطا در ذخیره‌سازی فایل تنظیمات (sms_config.php). مجوز نوشتن را بررسی کنید.';
-        } else {
+        $secret = (string)$cfg['api_key'];
+        unset($cfg['api_key']);
+        try {
+            $stmt = db()->prepare(
+                'UPDATE notification_channels SET configuration = ?, secret_value = ? WHERE channel = "sms" AND name = "sms_ir"'
+            );
+            $stmt->execute([json_encode($cfg, JSON_UNESCAPED_UNICODE), $secret]);
+            db_audit('settings.sms.update', 'notification_channel', 'sms_ir');
+            $cfg['api_key'] = $secret;
             $smsConfig = $cfg;
             $smsSaveMsg = 'تنظیمات پیامک با موفقیت ذخیره شد.';
+        } catch (Throwable $error) {
+            $smsSaveErr = 'خطا در ذخیره‌سازی تنظیمات پیامک در پایگاه داده.';
         }
     }
 }
@@ -352,22 +403,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
 // Logged in: registration control settings
 $registrationSaveMsg = '';
 $registrationSaveErr = '';
-$registrationConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'registration_config.php';
-$registrationConfig = [];
-if (is_readable($registrationConfigPath)) {
-    $tmp = require $registrationConfigPath;
-    if (is_array($tmp)) {
-        $registrationConfig = $tmp;
-    }
-}
-$registrationConfig = array_merge([
-    'blocked' => false,
-    'auto_date' => false,
-    'start_date' => '',
-    'start_time' => '',
-    'end_date' => '',
-    'end_time' => '',
-], $registrationConfig);
+$panelEvent = db_event();
+$registrationConfig = [
+    'blocked' => !(bool)$panelEvent['registration_enabled'],
+    'auto_date' => $panelEvent['registration_starts_at'] !== null || $panelEvent['registration_ends_at'] !== null,
+    'start_date' => $panelEvent['registration_starts_at'] ? date('Y-m-d', strtotime($panelEvent['registration_starts_at'])) : '',
+    'start_time' => $panelEvent['registration_starts_at'] ? date('H:i', strtotime($panelEvent['registration_starts_at'])) : '',
+    'end_date' => $panelEvent['registration_ends_at'] ? date('Y-m-d', strtotime($panelEvent['registration_ends_at'])) : '',
+    'end_time' => $panelEvent['registration_ends_at'] ? date('H:i', strtotime($panelEvent['registration_ends_at'])) : '',
+];
 
 $registrationStartHour = '';
 $registrationStartMinute = '';
@@ -411,14 +455,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '')
             'end_date' => $auto ? $end : '',
             'end_time' => $auto ? $endTime : '',
         ];
-        $export = var_export($toSave, true);
-        $php = "<?php\nreturn " . $export . ";\n";
-        $ok = @file_put_contents($registrationConfigPath, $php);
-        if ($ok === false) {
-            $registrationSaveErr = 'خطا در ذخیره تنظیمات ثبت نام. مجوز نوشتن را بررسی کنید.';
-        } else {
+        try {
+            $startsAt = $auto ? $start . ' ' . $startTime . ':00' : null;
+            $endsAt = $auto ? $end . ' ' . $endTime . ':00' : null;
+            $enabled = $auto ? 1 : ($blocked ? 0 : 1);
+            $stmt = db()->prepare(
+                'UPDATE events SET registration_enabled = ?, registration_starts_at = ?, registration_ends_at = ? WHERE id = ?'
+            );
+            $stmt->execute([$enabled, $startsAt, $endsAt, (int)$panelEvent['id']]);
+            db_audit('settings.registration.update', 'event', (string)$panelEvent['id'], null, $toSave);
             $registrationConfig = $toSave;
             $registrationSaveMsg = 'تنظیمات ثبت نام با موفقیت ذخیره شد.';
+        } catch (Throwable $error) {
+            $registrationSaveErr = 'خطا در ذخیره تنظیمات ثبت نام در پایگاه داده.';
         }
     }
 }
@@ -426,20 +475,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '')
 // Logged in: handle settings save for Telegram admin account
 $telegramSaveMsg = '';
 $telegramSaveErr = '';
-$telegramConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'telegram_config.php';
-$telegramConfig = [];
-if (is_readable($telegramConfigPath)) {
-    $tmp = require $telegramConfigPath;
-    if (is_array($tmp)) {
-        $telegramConfig = $tmp;
-    }
-}
+$telegramChannel = db_notification_channel('telegram', 'admin_bot');
+$telegramConfig = $telegramChannel ? $telegramChannel['config'] : [];
+$telegramConfig['bot_token'] = $telegramChannel ? (string)$telegramChannel['secret_value'] : '';
 // Ensure we always have default values for Telegram config
 if (!isset($telegramConfig['admin_chat_id']) || $telegramConfig['admin_chat_id'] === '') {
     $telegramConfig['admin_chat_id'] = '6442613822';
 }
 if (!isset($telegramConfig['bot_token']) || $telegramConfig['bot_token'] === '') {
-    $telegramConfig['bot_token'] = '8488319014:AAH26H7GDOtkGdE-Xtoyaem1FqjjlEW9XOM';
+    $telegramConfig['bot_token'] = '';
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_telegram_admin') {
@@ -454,14 +498,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
             $cfg['bot_token'] = $newBotToken;
         }
 
-        $export = var_export($cfg, true);
-        $php = "<?php\nreturn " . $export . ";\n";
-        $ok = @file_put_contents($telegramConfigPath, $php);
-        if ($ok === false) {
-            $telegramSaveErr = 'خطا در ذخیره تنظیمات تلگرام (telegram_config.php). لطفاً سطح دسترسی را بررسی کنید.';
-        } else {
+        $secret = (string)($cfg['bot_token'] ?? '');
+        unset($cfg['bot_token']);
+        try {
+            $stmt = db()->prepare(
+                'UPDATE notification_channels SET configuration = ?, secret_value = ? WHERE channel = "telegram" AND name = "admin_bot"'
+            );
+            $stmt->execute([json_encode($cfg, JSON_UNESCAPED_UNICODE), $secret]);
+            db_audit('settings.telegram.update', 'notification_channel', 'admin_bot');
+            $cfg['bot_token'] = $secret;
             $telegramConfig = $cfg;
             $telegramSaveMsg = 'تنظیمات اکانت تلگرام ادمین با موفقیت ذخیره شد.';
+        } catch (Throwable $error) {
+            $telegramSaveErr = 'خطا در ذخیره تنظیمات تلگرام در پایگاه داده.';
         }
     }
 }
@@ -469,24 +518,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
 // Logged in: handle settings for share prices (1..4 shares)
 $sharesSaveMsg = '';
 $sharesSaveErr = '';
-$sharesConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'share_config.php';
 // Defaults match existing behavior: price = qty * 100000
-$sharesConfig = [
-    1 => 100000,
-    2 => 200000,
-    3 => 300000,
-    4 => 400000,
-];
-if (is_readable($sharesConfigPath)) {
-    $tmp = require $sharesConfigPath;
-    if (is_array($tmp)) {
-        foreach ($sharesConfig as $k => $v) {
-            if (isset($tmp[$k]) && (int)$tmp[$k] > 0) {
-                $sharesConfig[$k] = (int)$tmp[$k];
-            }
-        }
-    }
-}
+$sharesConfig = db_ticket_prices((int)$panelEvent['id']);
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_shares') {
     $new = [];
@@ -504,14 +537,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) 
         $new[$i] = $val;
     }
     if ($sharesSaveErr === '') {
-        $export = var_export($new, true);
-        $php = "<?php\nreturn " . $export . ";\n";
-        $ok = @file_put_contents($sharesConfigPath, $php);
-        if ($ok === false) {
-            $sharesSaveErr = '??? ?? ?????????? ?????? ???? ?? (share_config.php). ???? ????? ?? ????? ????.';
-        } else {
+        try {
+            $pdo = db();
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare(
+                'INSERT INTO ticket_prices (event_id, quantity, total_amount) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount)'
+            );
+            foreach ($new as $quantity => $amount) {
+                $stmt->execute([(int)$panelEvent['id'], $quantity, $amount]);
+            }
+            $pdo->commit();
+            db_audit('settings.prices.update', 'event', (string)$panelEvent['id'], null, $new);
             $sharesConfig = $new;
             $sharesSaveMsg = 'قیمت سهم‌ها با موفقیت ذخیره شد';
+        } catch (Throwable $error) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $sharesSaveErr = 'خطا در ذخیره قیمت‌ها در پایگاه داده.';
         }
     }
 }
@@ -874,7 +918,7 @@ $count = count($participants);
                 <a href="#notification-settings"><i data-feather="settings"></i><span>تنظیمات اعلان</span></a>
             </nav>
             <div class="side-bottom">
-                <a class="side-nav__link logout" href="panel.php?logout=1" style="display:flex; align-items:center; gap:10px;">
+                <a class="side-nav__link logout" href="panel.php?logout=1&amp;csrf_token=<?php echo urlencode(csrf_token()); ?>" style="display:flex; align-items:center; gap:10px;">
                     <i data-feather="log-out"></i><span>خروج از حساب</span>
                 </a>
             </div>
@@ -890,7 +934,7 @@ $count = count($participants);
                 <a href="#notification-settings">تنظیمات اعلانیه</a>
             </nav>
             <div class="side-bottom">
-                <a class="side-nav__link logout" href="panel.php?logout=1">خروج از حساب</a>
+                <a class="side-nav__link logout" href="panel.php?logout=1&amp;csrf_token=<?php echo urlencode(csrf_token()); ?>">خروج از حساب</a>
             </div>
         </aside>
         <main class="content">
@@ -1016,6 +1060,7 @@ $count = count($participants);
                     </div>
                 <?php endif; ?>
                 <form method="post" action="panel.php#notification-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <?php echo csrf_input(); ?>
                     <input type="hidden" name="action" value="save_smsir" />
                     <label for="smsir_api" style="font-weight:700;">کلید API در SMS.ir</label>
                     <input class="ctrl" type="text" id="smsir_api" name="smsir_api" placeholder="مثال: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value="<?php echo htmlspecialchars((string)($smsConfig['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
@@ -1044,6 +1089,7 @@ $count = count($participants);
                     </div>
                 <?php endif; ?>
                 <form method="post" action="panel.php#telegram-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <?php echo csrf_input(); ?>
                     <input type="hidden" name="action" value="save_telegram_admin" />
                     <label for="telegram_admin_chat_id" style="font-weight:700;">USER ID (اکانت تلگرام ادمین)</label>
                     <input class="ctrl" type="text" id="telegram_admin_chat_id" name="telegram_admin_chat_id" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)($telegramConfig['admin_chat_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
@@ -1065,6 +1111,7 @@ $count = count($participants);
                     </div>
                 <?php endif; ?>
                 <form method="post" action="panel.php#share-settings" style="display:grid; gap:12px; max-width:640px;">
+                    <?php echo csrf_input(); ?>
                     <input type="hidden" name="action" value="save_shares" />
                     <label for="share_price_1" style="font-weight:700;">قیمت 1 سهم</label>
                     <input class="ctrl" type="number" min="1" step="1" id="share_price_1" name="share_price_1" value="<?php echo htmlspecialchars((string)($sharesConfig[1] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
@@ -1092,6 +1139,7 @@ $count = count($participants);
                     </div>
                 <?php endif; ?>
                 <form method="post" action="panel.php#control-room" style="display:grid; gap:12px; max-width:640px;">
+                    <?php echo csrf_input(); ?>
                     <input type="hidden" name="action" value="save_registration_settings" />
                     <div class="control-room-card">
                         <label class="toggle-switch">
@@ -1171,8 +1219,8 @@ $count = count($participants);
                             <option value="4">4 سهم</option>
                         </select>
                         <div class="filters__date-range">
-                            <input class="ctrl" type="date" name="from" placeholder="Ø§Ø² ØªØ§Ø±ÛŒØ®">
-                            <input class="ctrl" type="date" name="to" placeholder="ØªØ§ ØªØ§Ø±ÛŒØ®">
+                            <input class="ctrl" type="date" name="from" placeholder="از تاریخ">
+                            <input class="ctrl" type="date" name="to" placeholder="تا تاریخ">
                         </div>
                         <button class="btn" type="submit">خروجی CSV</button>
                     </form>
@@ -1224,10 +1272,10 @@ $count = count($participants);
                                 </td>
                                 <td><?php echo (int)$row['tickets']; ?></td>
                                 <td><?php echo number_format((int)$row['total']); ?></td>
-                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="Ø¨Ø±Ø§ÛŒ Ú©Ù¾ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                <td><span class="tag copy" data-copy="<?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?>" title="برای کپی کلیک کنید"><?php echo htmlspecialchars($row['tag'], ENT_QUOTES, 'UTF-8'); ?></span></td>
                                 <td>
                                   <?php if (!empty($row['ref_id'])): ?>
-                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="Ú©Ù¾ÛŒ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø²Ø±ÛŒÙ†â€ŒÙ¾Ø§Ù„"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="tag copy" data-copy="<?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?>" title="کپی رهگیری زرین‌پال"><?php echo htmlspecialchars($row['ref_id'], ENT_QUOTES, 'UTF-8'); ?></span>
                                   <?php else: ?>
                                     <span class="muted">-</span>
                                   <?php endif; ?>
@@ -1262,14 +1310,9 @@ $count = count($participants);
                     <div class="count-box">
                         <span>تعداد موارد آرشیو</span>
                         <b><?php
-                            $archCount = 0;
-                            $archFile = __DIR__ . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'archiev.csv';
-                            if (is_file($archFile)) {
-                                if (($fh = fopen($archFile, 'r')) !== false) {
-                                    $lineNo = 0; while (($row = fgetcsv($fh)) !== false) { $lineNo++; if ($lineNo === 1 && isset($row[0]) && strtolower((string)$row[0]) === 'tickets') { continue; } $archCount++; }
-                                    fclose($fh);
-                                }
-                            }
+                            $archCount = (int)db()->query(
+                                "SELECT COUNT(*) FROM registrations WHERE status = 'archived'"
+                            )->fetchColumn();
                             echo fa_digits(number_format($archCount));
                         ?></b>
                     </div>
@@ -1321,6 +1364,17 @@ $count = count($participants);
         </main>
     </div>
     <script>
+      window.CSRF_TOKEN = <?php echo json_encode($csrfToken, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+      (function () {
+        var originalFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+          init = init || {};
+          var headers = new Headers(init.headers || {});
+          headers.set('X-CSRF-Token', window.CSRF_TOKEN);
+          init.headers = headers;
+          return originalFetch(input, init);
+        };
+      })();
       // Tab navigation: show only selected section
       (function(){
         var links = Array.from(document.querySelectorAll('.side-nav a[href^="#"]'));

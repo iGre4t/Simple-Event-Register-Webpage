@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/security.php';
 // Zarinpal callback endpoint: verify payment and finalize order persistence.
 
 require_once __DIR__ . '/config.php';
@@ -14,16 +15,10 @@ function fail_redirect(string $reason = ''): void
     exit;
 }
 
-// Append a line to storage/sms.log for debugging SMS behavior
+// Persist SMS diagnostics in the database.
 function sms_log(string $line): void
 {
-    $storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
-    if (!is_dir($storageDir)) {
-        @mkdir($storageDir, 0775, true);
-    }
-    $logFile = $storageDir . DIRECTORY_SEPARATOR . 'sms.log';
-    $timestamp = date('Y-m-d H:i:s');
-    @file_put_contents($logFile, "[$timestamp] $line" . PHP_EOL, FILE_APPEND);
+    db_log('sms', $line);
 }
 
 // Normalize phone numbers to local 11-digit format starting with 09XXXXXXXXX
@@ -125,15 +120,19 @@ if ($authority === '' || !preg_match('/^[A-Za-z0-9]+$/', $authority)) {
     fail_redirect('invalid_authority');
 }
 
-$storageDir = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
-$pendingFile = $storageDir . DIRECTORY_SEPARATOR . 'pending' . DIRECTORY_SEPARATOR . $authority . '.json';
-if (!is_file($pendingFile)) {
+$stmt = db()->prepare(
+    'SELECT p.id AS payment_id, p.registration_id, p.amount AS total, p.status AS payment_status,
+            r.tracking_code AS tag, r.quantity AS qty, r.unit_price, r.created_at,
+            pt.full_name AS fullname, pt.mobile
+     FROM payments p
+     JOIN registrations r ON r.id = p.registration_id
+     JOIN participants pt ON pt.id = r.participant_id
+     WHERE p.provider = "zarinpal" AND p.authority = ?'
+);
+$stmt->execute([$authority]);
+$pending = $stmt->fetch();
+if (!$pending) {
     fail_redirect('unknown_authority');
-}
-
-$pending = json_decode((string)file_get_contents($pendingFile), true);
-if (!is_array($pending)) {
-    fail_redirect('pending_corrupt');
 }
 
 $amount = (int)($pending['total'] ?? 0);
@@ -187,106 +186,38 @@ if ($code !== 100 && $code !== 101) {
     fail_redirect('code_' . (string)$code . '_' . preg_replace('/[^A-Za-z0-9_\-]/', '', (string)$msg));
 }
 
-// Idempotent finalize: write CSV once, then mark as completed.
-$completedDir = $storageDir . DIRECTORY_SEPARATOR . 'completed';
-if (!is_dir($completedDir)) {
-    @mkdir($completedDir, 0775, true);
-}
-$completedMarker = $completedDir . DIRECTORY_SEPARATOR . $authority . '.json';
-
-if (!is_file($completedMarker)) {
-    // Append to the same CSV format used previously
-    $qty = (int)($pending['qty'] ?? 0);
-    $fileName = sprintf('%d tickets.csv', max(1, min(4, $qty)));
-    $filePath = $storageDir . DIRECTORY_SEPARATOR . $fileName;
-    // If the CSV exists but has legacy format (no header), upgrade it to extended header
-    if (is_file($filePath)) {
-        $peek = fopen($filePath, 'r');
-        if ($peek !== false) {
-            $first = fgetcsv($peek);
-            fclose($peek);
-            if (!is_array($first) || empty($first) || strtolower((string)$first[0]) !== 'tag') {
-                // Read all legacy rows
-                $legacyRows = [];
-                $rfh = fopen($filePath, 'r');
-                if ($rfh !== false) {
-                    while (($r = fgetcsv($rfh)) !== false) {
-                        if ($r === [null] || $r === false) { continue; }
-                        $legacyRows[] = $r;
-                    }
-                    fclose($rfh);
-                }
-                // Rewrite file with extended header
-                $wfh = fopen($filePath, 'w');
-                if ($wfh !== false) {
-                    fputcsv($wfh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
-                    foreach ($legacyRows as $lr) {
-                        $tagL = (string)($lr[0] ?? '');
-                        $nameL = (string)($lr[1] ?? '');
-                        $mobL  = (string)($lr[2] ?? '');
-                        $totL  = (int)($lr[3] ?? 0);
-                        $refL  = (string)($lr[4] ?? '');
-                        fputcsv($wfh, [$tagL,$nameL,$mobL,$totL,$refL,'','','']);
-                    }
-                    fclose($wfh);
-                }
-            }
-        }
-    }
-
-    // Open for appending (the file now has proper header)
-    $fh = fopen($filePath, 'a');
-    if ($fh === false) {
-        fail_redirect('file_error');
-    }
-    if (!flock($fh, LOCK_EX)) {
-        fclose($fh);
-        fail_redirect('file_lock');
-    }
+// Idempotent database finalization.
+$shouldNotify = ($pending['payment_status'] ?? '') !== 'verified';
+if ($shouldNotify) {
+    $pdo = db();
+    $pdo->beginTransaction();
     try {
-        $stats = fstat($fh);
-        $fileEmpty = $stats !== false && ($stats['size'] ?? 0) === 0;
-        if ($fileEmpty) {
-            fputcsv($fh, ['tag','fullname','mobile','total','ref_id','created_at','paid_at','authority']);
-        }
-
-        $rowFull = [
-            (string)($pending['tag'] ?? ''),
-            (string)($pending['fullname'] ?? ''),
-            (string)($pending['mobile'] ?? ''),
-            (int)($pending['total'] ?? 0),
+        $stmt = $pdo->prepare(
+            'UPDATE payments SET status = "verified", reference_id = ?, response_payload = ?,
+             verified_at = NOW() WHERE id = ? AND status <> "verified"'
+        );
+        $stmt->execute([
             (string)$refId,
-            (string)($pending['created_at'] ?? ''),
-            date('c'),
-            (string)$authority,
-        ];
-
-        // Always write extended columns in the defined order
-        fputcsv($fh, $rowFull);
-    } finally {
-        fflush($fh);
-        flock($fh, LOCK_UN);
-        fclose($fh);
+            json_encode($response, JSON_UNESCAPED_UNICODE),
+            (int)$pending['payment_id'],
+        ]);
+        $stmt = $pdo->prepare(
+            'UPDATE registrations SET status = "paid", paid_at = NOW() WHERE id = ?'
+        );
+        $stmt->execute([(int)$pending['registration_id']]);
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        fail_redirect('database_finalize_error');
     }
-
-    // Mark as completed
-    $completedPayload = [
-        'authority' => $authority,
-        'ref_id' => $refId,
-        'code' => $code,
-        'card_pan' => $cardPan,
-        'pending' => $pending,
-        'completed_at' => date('c'),
-    ];
-    file_put_contents($completedMarker, json_encode($completedPayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-
-    // Remove pending record
-    @unlink($pendingFile);
 
     // SMS notification(s) via SMS.ir according to configured mode
-    $smsConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'sms_config.php';
-    if (is_readable($smsConfigPath)) {
-        $smsConfig = require $smsConfigPath;
+    $smsChannel = db_notification_channel('sms', 'sms_ir');
+    if ($smsChannel) {
+        $smsConfig = $smsChannel['config'];
+        $smsConfig['api_key'] = (string)$smsChannel['secret_value'];
         if (is_array($smsConfig)) {
             $mode            = strtolower((string)($smsConfig['mode'] ?? 'bulk'));
             $apiKey          = trim((string)($smsConfig['api_key'] ?? ''));

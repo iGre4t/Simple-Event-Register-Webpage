@@ -1,8 +1,20 @@
 <?php
-session_start();
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db.php';
+security_session_start();
 if (!($_SESSION['is_admin'] ?? false)) { http_response_code(403); echo 'Forbidden'; exit; }
 
 function read_participants_export(): array {
+    return db()->query(
+        'SELECT r.quantity AS tickets, r.tracking_code AS tag, p.full_name AS fullname,
+                p.mobile, r.total_amount AS total, pay.reference_id AS ref_id,
+                r.created_at, r.paid_at, pay.authority
+         FROM registrations r
+         JOIN participants p ON p.id = r.participant_id
+         LEFT JOIN payments pay ON pay.registration_id = r.id AND pay.status = "verified"
+         WHERE r.status = "paid" ORDER BY r.created_at DESC'
+    )->fetchAll();
+    /*
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
     $all = [];
     for ($n = 1; $n <= 4; $n++) {
@@ -27,7 +39,7 @@ function read_participants_export(): array {
         }
         fclose($fh);
     }
-    return $all;
+    return $all; */
 }
 
 $tickets = isset($_GET['tickets']) ? trim((string)$_GET['tickets']) : '';

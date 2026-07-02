@@ -1,5 +1,7 @@
 <?php
-session_start();
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db.php';
+security_session_start();
 header('Content-Type: application/json; charset=UTF-8');
 
 if (!($_SESSION['is_admin'] ?? false)) {
@@ -62,6 +64,17 @@ function shamsi_datetime(string $dateString): string {
 
 // Reader for participants across 1..4 ticket CSV files
 function read_participants(): array {
+    return db()->query(
+        'SELECT r.quantity AS tickets, r.tracking_code AS tag, p.full_name AS fullname,
+                p.mobile, r.total_amount AS total, pay.reference_id AS ref_id,
+                r.created_at, r.paid_at, pay.authority,
+                UNIX_TIMESTAMP(COALESCE(r.paid_at, r.created_at)) AS ts
+         FROM registrations r
+         JOIN participants p ON p.id = r.participant_id
+         LEFT JOIN payments pay ON pay.registration_id = r.id AND pay.status = "verified"
+         WHERE r.status = "paid" ORDER BY r.created_at DESC'
+    )->fetchAll();
+    /*
     $base = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
     $all = [];
     for ($n = 1; $n <= 4; $n++) {
@@ -118,12 +131,65 @@ function read_participants(): array {
         }
         fclose($fh);
     }
-    return $all;
+    return $all; */
 }
 
 // Mutations
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    csrf_validate_request();
     $action = $_POST['action'] ?? '';
+    $tags = isset($_POST['tags']) ? array_map('strval', (array)$_POST['tags']) : [];
+    if (isset($_POST['tag'])) {
+        $tags[] = (string)$_POST['tag'];
+    }
+    $tags = array_values(array_unique(array_filter(array_map('trim', $tags))));
+    if (!$tags) {
+        echo json_encode(['ok' => false, 'error' => 'bad_tag']);
+        exit;
+    }
+    $operation = $action === 'bulk' ? (string)($_POST['do'] ?? '') : $action;
+    $placeholders = implode(',', array_fill(0, count($tags), '?'));
+    if ($operation === 'archive') {
+        $stmt = db()->prepare(
+            "UPDATE registrations SET status = 'archived', archived_at = NOW()
+             WHERE status = 'paid' AND tracking_code IN ($placeholders)"
+        );
+        $stmt->execute($tags);
+        db_audit('registrations.archive', 'registration', implode(',', $tags));
+        echo json_encode(['ok' => true, 'processed' => $stmt->rowCount()]);
+        exit;
+    }
+    if ($operation === 'delete') {
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("SELECT id, participant_id FROM registrations WHERE tracking_code IN ($placeholders)");
+            $stmt->execute($tags);
+            $found = $stmt->fetchAll();
+            $ids = array_column($found, 'id');
+            $participantIds = array_unique(array_column($found, 'participant_id'));
+            if ($ids) {
+                $idMarks = implode(',', array_fill(0, count($ids), '?'));
+                $pdo->prepare("DELETE FROM payments WHERE registration_id IN ($idMarks)")->execute($ids);
+                $pdo->prepare("DELETE FROM registrations WHERE id IN ($idMarks)")->execute($ids);
+            }
+            foreach ($participantIds as $participantId) {
+                $pdo->prepare(
+                    'DELETE FROM participants WHERE id = ? AND NOT EXISTS
+                     (SELECT 1 FROM registrations WHERE participant_id = ?)'
+                )->execute([$participantId, $participantId]);
+            }
+            $pdo->commit();
+            db_audit('registrations.delete', 'registration', implode(',', $tags));
+            echo json_encode(['ok' => true, 'processed' => count($ids)]);
+        } catch (Throwable $error) {
+            $pdo->rollBack();
+            echo json_encode(['ok' => false, 'error' => 'database_error']);
+        }
+        exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'bad_action']);
+    exit;
     // Single archive
     if ($action === 'archive') {
         $tag = trim((string)($_POST['tag'] ?? ''));

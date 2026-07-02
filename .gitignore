@@ -1,0 +1,11 @@
+# Local secrets must never be committed.
+.env
+.env.*
+!.env.example
+
+# Runtime data remains backed up separately from source control.
+storage/pending/
+storage/completed/
+
+# Full backups contain credentials and personal/payment data.
+backups/
