@@ -15,13 +15,15 @@ if (!defined('TELEGRAM_BOT_TOKEN')) {
     }
     define('TELEGRAM_BOT_TOKEN', $defaultToken);
 }
-if (!defined('TELEGRAM_ADMIN_CHAT_ID')) {
-    // Admin user_id to receive messages
-    $defaultAdminId = '6442613822';
-    if (isset($telegramConfig['admin_chat_id']) && $telegramConfig['admin_chat_id'] !== '') {
-        $defaultAdminId = (string)$telegramConfig['admin_chat_id'];
-    }
-    define('TELEGRAM_ADMIN_CHAT_ID', $defaultAdminId);
+if (!defined('TELEGRAM_ADMIN_CHAT_IDS')) {
+    $adminIds = isset($telegramConfig['admin_chat_ids']) && is_array($telegramConfig['admin_chat_ids'])
+        ? $telegramConfig['admin_chat_ids']
+        : (!empty($telegramConfig['admin_chat_id']) ? [(string)$telegramConfig['admin_chat_id']] : []);
+    $adminIds = array_values(array_unique(array_filter(array_map(
+        static fn($id): string => trim((string)$id),
+        $adminIds
+    ))));
+    define('TELEGRAM_ADMIN_CHAT_IDS', $adminIds);
 }
 
 /**
@@ -109,13 +111,22 @@ function telegram_send_message(string $chatId, string $text, array $options = []
 }
 
 /**
- * Convenience wrapper: notify configured admin.
+ * Convenience wrapper: notify all configured admins.
  */
 function telegram_notify_admin(string $text, array $options = []): array
 {
-    $res = telegram_send_message(TELEGRAM_ADMIN_CHAT_ID, $text, $options);
-    $snippet = substr(json_encode($res['response'] ?? $res, JSON_UNESCAPED_UNICODE), 0, 300);
-    telegram_log('notify_admin status=' . ($res['status'] ?? 'n/a') . ' ok=' . (int)($res['ok'] ?? 0) . ' body=' . $snippet);
-    return $res;
+    $results = [];
+    foreach (TELEGRAM_ADMIN_CHAT_IDS as $chatId) {
+        $result = telegram_send_message((string)$chatId, $text, $options);
+        $results[(string)$chatId] = $result;
+        $snippet = substr(json_encode($result['response'] ?? $result, JSON_UNESCAPED_UNICODE), 0, 300);
+        telegram_log('notify_admin chat_id=' . $chatId . ' status=' . ($result['status'] ?? 'n/a')
+            . ' ok=' . (int)($result['ok'] ?? 0) . ' body=' . $snippet);
+    }
+    $allOk = $results !== [];
+    foreach ($results as $result) {
+        $allOk = $allOk && (bool)($result['ok'] ?? false);
+    }
+    return ['ok' => $allOk, 'results' => $results];
 }
 

@@ -479,21 +479,30 @@ $telegramChannel = db_notification_channel('telegram', 'admin_bot');
 $telegramConfig = $telegramChannel ? $telegramChannel['config'] : [];
 $telegramConfig['bot_token'] = $telegramChannel ? (string)$telegramChannel['secret_value'] : '';
 // Ensure we always have default values for Telegram config
-if (!isset($telegramConfig['admin_chat_id']) || $telegramConfig['admin_chat_id'] === '') {
-    $telegramConfig['admin_chat_id'] = '6442613822';
-}
+$telegramAdminIds = isset($telegramConfig['admin_chat_ids']) && is_array($telegramConfig['admin_chat_ids'])
+    ? array_values($telegramConfig['admin_chat_ids'])
+    : (!empty($telegramConfig['admin_chat_id']) ? [(string)$telegramConfig['admin_chat_id']] : []);
+$telegramAdminIds = array_pad($telegramAdminIds, 2, '');
 if (!isset($telegramConfig['bot_token']) || $telegramConfig['bot_token'] === '') {
     $telegramConfig['bot_token'] = '';
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_telegram_admin') {
-    $newAdminId = trim((string)($_POST['telegram_admin_chat_id'] ?? ''));
+    $newAdminIds = [
+        trim((string)($_POST['telegram_admin_chat_id_1'] ?? '')),
+        trim((string)($_POST['telegram_admin_chat_id_2'] ?? '')),
+    ];
     $newBotToken = trim((string)($_POST['telegram_bot_token'] ?? ''));
-    if ($newAdminId === '') {
+    if ($newAdminIds[0] === '' || $newAdminIds[1] === '') {
         $telegramSaveErr = 'شناسه کاربر تلگرام ادمین نمی\u200cتواند خالی باشد.';
+    } elseif (!preg_match('/^-?\d+$/', $newAdminIds[0]) || !preg_match('/^-?\d+$/', $newAdminIds[1])) {
+        $telegramSaveErr = 'شناسه‌های تلگرام باید فقط شامل عدد باشند.';
+    } elseif ($newAdminIds[0] === $newAdminIds[1]) {
+        $telegramSaveErr = 'شناسه ادمین اول و دوم باید متفاوت باشند.';
     } else {
         $cfg = is_array($telegramConfig) ? $telegramConfig : [];
-        $cfg['admin_chat_id'] = $newAdminId;
+        $cfg['admin_chat_ids'] = array_values(array_unique($newAdminIds));
+        unset($cfg['admin_chat_id']);
         if ($newBotToken !== '') {
             $cfg['bot_token'] = $newBotToken;
         }
@@ -1091,8 +1100,10 @@ $count = count($participants);
                 <form method="post" action="panel.php#telegram-settings" style="display:grid; gap:12px; max-width:640px;">
                     <?php echo csrf_input(); ?>
                     <input type="hidden" name="action" value="save_telegram_admin" />
-                    <label for="telegram_admin_chat_id" style="font-weight:700;">USER ID (اکانت تلگرام ادمین)</label>
-                    <input class="ctrl" type="text" id="telegram_admin_chat_id" name="telegram_admin_chat_id" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)($telegramConfig['admin_chat_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" />
+                    <label for="telegram_admin_chat_id_1" style="font-weight:700;">USER ID ادمین اول</label>
+                    <input class="ctrl" type="text" id="telegram_admin_chat_id_1" name="telegram_admin_chat_id_1" placeholder="مثال: 6442613822" value="<?php echo htmlspecialchars((string)$telegramAdminIds[0], ENT_QUOTES, 'UTF-8'); ?>" required />
+                    <label for="telegram_admin_chat_id_2" style="font-weight:700;">USER ID ادمین دوم</label>
+                    <input class="ctrl" type="text" id="telegram_admin_chat_id_2" name="telegram_admin_chat_id_2" placeholder="شناسه عددی ادمین دوم" value="<?php echo htmlspecialchars((string)$telegramAdminIds[1], ENT_QUOTES, 'UTF-8'); ?>" required />
                     <div>
                         <button class="btn" type="submit">ذخیره اکانت تلگرام</button>
                     </div>

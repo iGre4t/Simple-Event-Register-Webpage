@@ -59,7 +59,7 @@ VALUES
      ),
      'SMSIR_API_KEY'),
     ('telegram', 'admin_bot', TRUE,
-     JSON_OBJECT('admin_chat_id', '6442613822'),
+     JSON_OBJECT('admin_chat_ids', JSON_ARRAY('6442613822')),
      'TELEGRAM_BOT_TOKEN')
 ON DUPLICATE KEY UPDATE
     enabled = VALUES(enabled),
